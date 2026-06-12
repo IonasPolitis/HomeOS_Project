@@ -1,0 +1,46 @@
+{
+  "system_defaults": {
+    "mode": { "type": "hidden", "default": "generated" },
+    "var_ctid": { "type": "number", "label": "Container ID (Leave blank for auto)", "default": "" }
+  },
+  "basic_settings": {
+    "var_hostname": { "type": "text", "label": "Container Hostname", "default": "" },
+    "var_pw": { "type": "password", "label": "Root Password (Optional)", "default": "" },
+    "var_cores": { "type": "number", "label": "CPU Cores", "default": 1, "min": 1, "max": 16 },
+    "var_ram": { "type": "number", "label": "RAM Allocation (MB)", "default": 512, "min": 256, "max": 8192 }
+  },
+  "network_routing": {
+    "var_net": { "type": "select", "label": "IP Assignment Type", "options": ["dhcp", "static"], "default": "dhcp" },
+    "var_net_ip": { "type": "text", "label": "Static IP/CIDR (e.g., 10.0.5.50/24)", "default": "", "depends_on": "var_net=static" },
+    "var_gateway": { "type": "text", "label": "Gateway IP Address", "default": "", "depends_on": "var_net=static" },
+    "var_vlan": { "type": "text", "label": "VLAN Tag", "default": "" },
+    "var_mtu": { "type": "number", "label": "MTU Size Override", "default": "" },
+    "var_ns": { "type": "text", "label": "Custom DNS Server", "default": "" },
+    "var_searchdomain": { "type": "text", "label": "DNS Search Domain", "default": "" },
+    "var_mac": { "type": "text", "label": "Custom MAC Address", "default": "" }
+  },
+  "advanced_privileges": {
+    "var_unprivileged": { "type": "toggle", "label": "Unprivileged Container", "default": true, "invert_value": "0" },
+    "var_nesting": { "type": "toggle", "label": "Enable Nesting Features", "default": true },
+    "var_fuse": { "type": "toggle", "label": "Mount FUSE Storage Engines", "default": false },
+    "var_tun": { "type": "toggle", "label": "Expose TUN/TAP Network Drivers", "default": false },
+    "var_keyctl": { "type": "toggle", "label": "Enable Keyctl System Calls", "default": false },
+    "var_mknod": { "type": "toggle", "label": "Allow Mknod Block Operations", "default": false },
+    "var_protection": { "type": "toggle", "label": "Enable Deletion Protection", "default": false }
+  },
+  "hardware_passthrough": {
+    "var_gpu": { "type": "toggle", "label": "Passthrough Host GPU Compute Resources", "default": false }
+  },
+  "provisioning_tweaks": {
+    "var_ssh": { "type": "toggle", "label": "Pre-configure OpenSSH Server", "default": true, "string_output": true },
+    "var_ssh_authorized_key": { "type": "textarea", "label": "Authorized Public SSH Keys", "default": "", "depends_on": "var_ssh=true" },
+    "var_timezone": { "type": "text", "label": "System Timezone Override", "default": "" },
+    "var_apt_cacher": { "type": "toggle", "label": "Connect via APT Cacher Proxy", "default": false, "string_output": true },
+    "var_apt_cacher_ip": { "type": "text", "label": "APT Cacher Proxy IP", "default": "", "depends_on": "var_apt_cacher=true" },
+    "var_container_storage": { "type": "text", "label": "Target Container Storage Volume", "default": "" },
+    "var_template_storage": { "type": "text", "label": "Target Template Storage Volume", "default": "" },
+    "var_tags": { "type": "text", "label": "LXC Inventory Tags (comma separated)", "default": "" },
+    "var_mount_fs": { "type": "text", "label": "Custom Shared Filesystem Mounts", "default": "" },
+    "var_verbose": { "type": "toggle", "label": "Enable Verbose Installer Logs", "default": true, "string_output": true }
+  }
+}

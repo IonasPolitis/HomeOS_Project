@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeOS Dashboard</title>
+    <style>
+        /* ==================================================================
+           LOCAL FONTS
+           ================================================================== */
+        @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; src: url('/fonts/inter-400.woff2') format('woff2'); }
+        @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; src: url('/fonts/inter-500.woff2') format('woff2'); }
+        @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; src: url('/fonts/inter-600.woff2') format('woff2'); }
+        @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; src: url('/fonts/jetbrains-mono-400.woff2') format('woff2'); }
+        @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 500; src: url('/fonts/jetbrains-mono-500.woff2') format('woff2'); }
+        @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 600; src: url('/fonts/jetbrains-mono-600.woff2') format('woff2'); }
+
+        /* ==================================================================
+           THEME ENGINE - THE 9 CORE VARIABLES
+           ================================================================== */
+        :root {
+            --bg-base: #1E2028;
+            --bg-sidebar: #14151B;
+            --panel-bg: #2D313A;
+            --text-primary: #C9D1D9;
+            --text-secondary: #7A8490;
+            --accent-color: #FF7B72;
+            --selection-color: #FF7B72;
+            --success: #3FB950;
+            --danger: #F85149;
+            
+            --font-ui: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        ::selection { background: var(--selection-color); color: var(--bg-base); }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* Restored EXACT scaling from Last Good Version */
+        body { 
+            font-family: var(--font-ui); 
+            background-color: var(--bg-base); 
+            color: var(--text-primary); 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+            font-size: 13px; 
+            -webkit-font-smoothing: antialiased; 
+            transition: background-color 0.3s ease, color 0.3s ease; 
+        }
+        
+        /* --- Left Rail --- */
+        .left-rail { width: 280px; background-color: var(--bg-sidebar); border-right: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); display: flex; flex-direction: column; padding: 1.5rem 1.25rem; overflow-y: auto; z-index: 10; transition: background-color 0.3s, border-color 0.3s; }
+        
+        /* FIXED: Removed !important to allow live CSS repainting of Accent Color */
+        .brand-header { font-size: 1.25rem; font-weight: 600; color: var(--accent-color); margin-bottom: 2rem; display: flex; align-items: center; gap: 0.5rem; transition: color 0.3s; }
+        .brand-header svg { stroke: var(--accent-color); transition: stroke 0.3s; }
+        
+        .metrics-group { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 2rem; }
+        .section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); font-weight: 600; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; transition: color 0.3s; }
+        
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0; }
+        .stat-label { color: var(--text-secondary); font-weight: 500; transition: color 0.3s; }
+        .stat-value { font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary); transition: color 0.3s; }
+        
+        .progress-track { width: 100%; height: 4px; background: color-mix(in srgb, var(--text-secondary) 25%, transparent); border-radius: 2px; margin-top: 0.25rem; overflow: hidden; transition: background 0.3s; }
+        .progress-fill { height: 100%; background: var(--text-secondary); border-radius: 2px; transition: width 0.5s ease, background-color 0.3s; }
+        .progress-fill.active { background: var(--accent-color); }
+        
+        /* --- CLUSTER NODES --- */
+        .node-list-container { display: flex; flex-direction: column; margin-top: 0.5rem; }
+        .node-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); overflow: hidden; max-height: 30px; opacity: 1; margin-bottom: 0.4rem; transition: all 0.3s ease-in-out; }
+        .node-info { display: flex; align-items: center; gap: 0.5rem; }
+        .node-actions { display: flex; gap: 0.3rem; opacity: 0; transition: opacity 0.2s; }
+        .node-item:hover .node-actions { opacity: 1; }
+        .node-action-btn { background: transparent; border: none; cursor: pointer; color: var(--text-secondary); padding: 0.2rem; display: flex; align-items: center; border-radius: 4px; transition: background 0.2s, color 0.2s; }
+        .node-action-btn:hover { background: color-mix(in srgb, var(--text-primary) 10%, transparent); color: var(--text-primary); }
+        .node-action-btn.start:hover { color: var(--success); }
+        .node-action-btn.stop:hover { color: var(--danger); }
+        .node-action-btn.restart:hover { color: var(--accent-color); }
+        .node-item.running-node { max-height: 0; opacity: 0; margin-bottom: 0; }
+        .node-list-container.expanded .node-item.running-node { max-height: 30px; opacity: 1; margin-bottom: 0.4rem; }
+        
+        .node-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-secondary); flex-shrink: 0; transition: background-color 0.3s; }
+        .node-dot.running { background: var(--success); box-shadow: 0 0 5px var(--success); }
+        .node-dot.stopped { background: var(--danger); opacity: 0.5; }
+        
+        .vmid-badge { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-primary); opacity: 0.9; font-weight: 600; margin-right: 0.4rem; transition: color 0.3s; }
+        
+        .expand-toggle { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; transition: background 0.2s, color 0.3s; }
+        .expand-toggle:hover { background: color-mix(in srgb, var(--text-primary) 10%, transparent); color: var(--text-primary); }
+        .expand-toggle svg { width: 12px; height: 12px; transition: transform 0.3s; }
+        .expand-toggle.open svg { transform: rotate(180deg); }
+
+        .guarded-action { margin-top: 0.5rem; position: relative; background: transparent; border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); color: var(--text-secondary); padding: 0.75rem; border-radius: 6px; cursor: pointer; text-align: center; font-family: var(--font-ui); font-weight: 500; font-size: 0.85rem; overflow: hidden; transition: border-color 0.2s, color 0.2s; }
+        .guarded-action:hover { border-color: var(--danger); color: var(--danger); }
+        .action-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--danger); width: 0%; transition: background-color 0.3s; }
+        
+        /* STATIC LINK BADGE: Blueprint style shortcut tile matching the node button framework */
+        .static-link-btn { 
+            margin-top: auto; /* Pushes the link group down to sit on top of the reboot action */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 0.5rem;
+            text-decoration: none; 
+            background: transparent; 
+            border: 1px dashed color-mix(in srgb, var(--text-secondary) 25%, transparent); 
+            color: var(--text-secondary); 
+            padding: 0.75rem; 
+            border-radius: 6px; 
+            font-family: var(--font-ui); 
+            font-weight: 500; 
+            font-size: 0.85rem; 
+            transition: border-color 0.2s, color 0.2s, background-color 0.2s; 
+        }
+        .static-link-btn:hover { 
+            border-color: var(--accent-color); 
+            color: var(--text-primary); 
+            background: color-mix(in srgb, var(--accent-color) 4%, transparent); 
+        }
+        .static-link-btn svg { stroke: currentColor; transition: stroke 0.2s; }
+        
+        /* --- Right Workspace --- */
+        .right-workspace { flex-grow: 1; padding: 2.5rem 4rem; display: flex; flex-direction: column; gap: 2rem; overflow-y: auto; position: relative; }
+        .workspace-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); padding-bottom: 1rem; transition: border-color 0.3s; }
+        .workspace-title { font-size: 1.1rem; font-weight: 500; color: var(--text-secondary); transition: color 0.3s; }
+        
+        /* FIXED: Header Control Buttons Active States */
+        .header-controls { display: flex; gap: 1rem; align-items: center; }
+        .edit-toggle { background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font-mono); cursor: pointer; transition: color 0.2s; }
+        .theme-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font-mono); cursor: pointer; transition: color 0.2s; display: none; }
+        body.edit-mode-active .theme-btn { display: block; }
+        .edit-toggle:hover, .edit-toggle.active, .theme-btn:hover, .theme-btn.active { color: var(--accent-color); }
+
+        /* --- UI COMPONENTS: GENERIC FLOATING PANELS --- */
+        .floating-panel { 
+            position: absolute; 
+            background: var(--panel-bg); 
+            border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); 
+            border-radius: 8px; 
+            max-height: calc(100vh - 8rem); 
+            overflow-y: auto; 
+            padding: 1.5rem; 
+            display: flex; flex-direction: column; gap: 1.25rem; z-index: 50; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; 
+            transform: translateY(-10px); transition: all 0.2s ease, background-color 0.3s;
+            scrollbar-width: thin; scrollbar-color: var(--text-secondary) transparent; 
+        }
+        .floating-panel::-webkit-scrollbar { width: 6px; }
+        .floating-panel::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 4px; }
+        .floating-panel.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
+        
+        .panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); padding-bottom: 0.75rem; }
+        .panel-title { font-weight: 600; color: var(--text-primary); font-size: 0.9rem; text-transform: capitalize; }
+        
+        /* --- HORIZONTAL THEME CAROUSEL --- */
+        .theme-carousel { 
+            display: flex; 
+            overflow-x: auto; 
+            gap: 0.75rem; 
+            padding-bottom: 1.25rem; /* Expanded to clearly clear the scrollbar */
+            min-height: 105px; /* Safely accommodates tiles and scroll track */
+            align-items: flex-start;
+            scrollbar-width: thin; 
+            scrollbar-color: var(--text-secondary) transparent; 
+        }
+        .theme-carousel::-webkit-scrollbar { height: 6px; }
+        .theme-carousel::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 4px; }
+        
+        .theme-tile { flex: 0 0 100px; width: 100px; background: color-mix(in srgb, var(--panel-bg), black 20%); border: 1px solid color-mix(in srgb, var(--text-secondary) 20%, transparent); border-radius: 8px; padding: 0.75rem 0.5rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; transition: all 0.2s ease; position: relative; }
+        .theme-tile:hover { border-color: var(--text-secondary); }
+        .theme-tile.active { border-color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, var(--panel-bg)); }
+        
+        .theme-tile-colors { display: flex; justify-content: center; align-items: center; }
+        /* FIXED: Border brightness adjusted to 0.80 per specification */
+        .theme-color-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.80); }
+        .theme-color-dot:not(:first-child) { margin-left: -8px; }
+        
+        .theme-tile-name { font-size: 0.75rem; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding-top: 0.2rem; }
+        /* Delete Theme Button */
+        .theme-delete-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.2s, color 0.2s, background 0.2s;
+            z-index: 10;
+        }
+        .theme-tile:hover .theme-delete-btn { opacity: 1; }
+        .theme-delete-btn:hover { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
+
+        /* Live Editor Styling */
+        .editor-section-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); font-weight: 600; margin-top: 0.25rem; }
+        .color-row { display: flex; justify-content: space-between; align-items: center; }
+        .color-label { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-secondary); }
+        .color-control-group { display: flex; gap: 0.5rem; align-items: center; }
+        
+        .color-hex-input { width: 65px; background: color-mix(in srgb, var(--bg-base) 50%, transparent); border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); color: var(--text-primary); padding: 0.2rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.75rem; text-align: center; outline: none; transition: border-color 0.2s; }
+        .color-hex-input:focus { border-color: var(--accent-color); }
+        .color-picker { -webkit-appearance: none; -moz-appearance: none; appearance: none; width: 28px; height: 28px; background: transparent; border: none; cursor: pointer; padding: 0; }
+        .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-picker::-webkit-color-swatch { border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); border-radius: 4px; }
+        
+        /* Saving & Export */
+        .save-theme-group { display: flex; gap: 0.5rem; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); padding-top: 1.25rem; }
+        .save-theme-input { flex-grow: 1; background: var(--bg-base); border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); color: var(--text-primary); padding: 0.4rem 0.6rem; border-radius: 4px; font-family: var(--font-ui); font-size: 0.8rem; outline: none; transition: border-color 0.2s; }
+        .save-theme-input:focus { border-color: var(--accent-color); }
+        .save-theme-btn { background: var(--text-secondary); border: none; color: var(--bg-base); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; font-weight: 600; }
+        .save-theme-btn:hover { background: var(--accent-color); color: var(--bg-base); }
+
+        .copy-json-btn { background: color-mix(in srgb, var(--text-primary) 5%, transparent); border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); color: var(--text-primary); padding: 0.6rem; border-radius: 4px; cursor: pointer; font-family: var(--font-mono); font-size: 0.75rem; width: 100%; transition: all 0.2s; margin-top: 0.5rem; }
+        .copy-json-btn:hover { background: var(--accent-color); color: var(--bg-base); border-color: var(--accent-color); }
+
+        /* --- Grid & Cards --- */
+        .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 100px)); grid-auto-rows: max-content; gap: 1.5rem 2rem; align-items: start; width: 100%; }
+        
+        .app-card { height: 110px; background: transparent; border: 1px solid transparent; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; text-decoration: none; color: var(--text-secondary); transition: transform 0.2s, background-color 0.2s, color 0.2s, opacity 0.2s; position: relative; user-select: none; }
+        .app-card:not(.edit-mode-card):hover { transform: translateY(-2px); color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+        .app-icon { width: 42px; height: 42px; object-fit: contain; opacity: 0.85; transition: opacity 0.2s; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); pointer-events: none; }
+        .app-card:not(.edit-mode-card):hover .app-icon { opacity: 1; }
+        .app-card:not(.edit-mode-card):hover .app-name { color: var(--text-primary); }
+        .app-name { font-size: 0.75rem; font-weight: 500; text-align: center; pointer-events: none; transition: color 0.3s; }
+
+        /* UNIFIED EDIT MODE STYLING: Matching the dashed border look exactly */
+        .app-card.edit-mode-card { border: 1px dashed color-mix(in srgb, var(--text-secondary) 30%, transparent); background: transparent !important; }
+
+        /* --- HIDDEN / OFFLINE UI STYLING & 3-CORNER BUTTONS --- */
+        .app-delete-btn { position: absolute; top: 6px; left: 6px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; opacity: 0; transition: all 0.2s; z-index: 10; border-radius: 4px; }
+        .app-edit-btn { position: absolute; top: 6px; right: 6px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; opacity: 0; transition: all 0.2s; z-index: 10; border-radius: 4px; }
+        .app-hide-btn { position: absolute; bottom: 6px; left: 6px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px; opacity: 0; transition: all 0.2s; z-index: 10; border-radius: 4px; }
+        
+        .app-card.edit-mode-card:hover .app-delete-btn, 
+        .app-card.edit-mode-card:hover .app-edit-btn, 
+        .app-card.edit-mode-card:hover .app-hide-btn { opacity: 1; }
+        
+        .app-delete-btn:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+        .app-edit-btn:hover { color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 15%, transparent); }
+        .app-hide-btn:hover { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .icon-spin { animation: spin 1s linear infinite; stroke: var(--danger) !important; }
+
+        .hidden-app-card { border-color: var(--danger) !important; background: color-mix(in srgb, var(--danger) 5%, transparent) !important; }
+        .hidden-app-card .app-hide-btn { opacity: 1; color: var(--danger); }
+        .hidden-app-card .app-hide-btn:hover { background: color-mix(in srgb, var(--danger) 15%, transparent); }
+        
+        .app-icon.dimmed { opacity: 0.3 !important; filter: grayscale(100%); }
+        .offline-app-card .app-icon { filter: grayscale(100%); opacity: 0.5; }
+        .offline-app-card .app-name { color: var(--text-secondary); opacity: 0.7; }
+        .offline-app-card:not(.edit-mode-card):hover .app-icon { opacity: 0.7; }
+
+        /* Category Section Dividers */
+        .grid-category-divider {
+            grid-column: 1 / -1; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.4rem;
+            /* Balanced margins to neutralize stacked CSS grid gaps */
+            margin-top: 0.75rem;
+            margin-bottom: 0.75rem;
+            width: 100%;
+            user-select: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+        }
+        .grid-category-divider.edit-mode-card {
+            border: 1px dashed color-mix(in srgb, var(--text-secondary) 30%, transparent);
+            background: transparent !important;
+        }
+        .grid-category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        .grid-category-line {
+            border: none;
+            height: 1px;
+            background-color: color-mix(in srgb, var(--text-secondary) 25%, transparent);
+            width: 100%;
+            margin: 0;
+        }
+
+        /* Category Edit/Delete Controls */
+        .cat-delete-btn { background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.75rem; font-family: var(--font-mono); opacity: 0; transition: opacity 0.2s, color 0.2s; }
+        .grid-category-divider:hover .cat-delete-btn { opacity: 1; }
+        .cat-delete-btn:hover { color: var(--danger); }
+
+        /* Add Category Button in Header */
+        .add-cat-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; font-family: var(--font-mono); cursor: pointer; transition: color 0.2s; display: none; }
+        body.edit-mode-active .add-cat-btn { display: block; }
+        .add-cat-btn:hover { color: var(--accent-color); }
+        
+        /* --- EDIT MODE DRAG --- */
+        .edit-mode-card { cursor: grab !important; background: color-mix(in srgb, var(--text-primary) 5%, transparent); border-color: color-mix(in srgb, var(--text-secondary) 25%, transparent); }
+        .edit-mode-card:active { cursor: grabbing !important; }
+        .app-card.dragging { opacity: 0.4; transform: scale(0.95); animation: none; border-color: var(--accent-color); }
+        .app-card.drag-over { border: 2px dashed var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, transparent); }
+    
+        /* --- APP STORE EXTENSIONS --- */
+        /* New Backdrop for Center Screen Focus */
+        .modal-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            z-index: 9998; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+        }
+        .modal-backdrop.show { opacity: 1; pointer-events: auto; }
+
+        /* Modifier class to center the floating panel */
+        .modal-panel {
+            position: fixed !important;
+            top: 50% !important; left: 50% !important;
+            transform: translate(-50%, -45%) !important; /* Starts slightly high for drop-in animation */
+            z-index: 9999 !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        }
+        .modal-panel.show {
+            transform: translate(-50%, -50%) !important; /* Settles dead center */
+        }
+
+        .store-search-bar {
+            width: 100%; background: var(--bg-base); border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); color: var(--text-primary); padding: 0.6rem 1rem; border-radius: 6px; font-family: var(--font-ui); font-size: 0.85rem; outline: none; transition: border-color 0.2s; margin-bottom: 0.5rem;
+            flex-shrink: 0; /* Fixes squishing */
+        }
+        .store-search-bar:focus { border-color: var(--accent-color); }
+
+        .store-category-track {
+            display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 0.5rem; scrollbar-width: none;
+            flex-shrink: 0; /* Fixes squishing */
+            min-height: 36px;
+            align-items: center;
+        }
+        .store-category-track::-webkit-scrollbar { display: none; }
+        
+        .store-cat-pill {
+            padding: 0.3rem 0.75rem; background: color-mix(in srgb, var(--text-primary) 5%, transparent); border: 1px solid color-mix(in srgb, var(--text-secondary) 20%, transparent); border-radius: 20px; color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+            flex-shrink: 0; /* Fixes squishing */
+            display: flex;
+            align-items: center;
+            height: 28px;
+        }
+        .store-cat-pill.active, .store-cat-pill:hover { background: color-mix(in srgb, var(--accent-color) 10%, transparent); border-color: var(--accent-color); color: var(--text-primary); }
+
+        .store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.5rem; min-height: 250px; }
+        .store-item-card { background: color-mix(in srgb, var(--panel-bg), black 15%); border: 1px solid color-mix(in srgb, var(--text-secondary) 20%, transparent); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; transition: border-color 0.2s; }
+        .store-item-card:hover { border-color: var(--text-secondary); }
+        .store-item-header { display: flex; align-items: center; gap: 0.75rem; }
+        .store-item-icon { width: 32px; height: 32px; object-fit: contain; }
+        .store-item-title { font-weight: 600; color: var(--text-primary); font-size: 0.85rem; }
+        .store-item-desc { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.3; min-height: 36px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+        .store-install-btn { background: var(--text-secondary); border: none; color: var(--bg-base); padding: 0.4rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: pointer; text-align: center; transition: background 0.2s; margin-top: auto; }
+        .store-install-btn:hover { background: var(--success); color: var(--bg-base); }
+
+        /* --- APP STORE CONFIG VIEW EXTENSIONS --- */
+        .store-view-container { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+        .store-view-container.hidden { display: none !important; }
+
+        .config-header { display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); padding-bottom: 1rem; margin-bottom: 1rem; flex-shrink: 0; }
+        .config-scroll-area { flex-grow: 1; overflow-y: auto; padding-right: 0.5rem; scrollbar-width: thin; scrollbar-color: var(--text-secondary) transparent; display: flex; flex-direction: column; gap: 1.5rem; }
+        .config-scroll-area::-webkit-scrollbar { width: 6px; }
+        .config-scroll-area::-webkit-scrollbar-thumb { background-color: var(--text-secondary); border-radius: 4px; }
+
+        .config-section { background: color-mix(in srgb, var(--panel-bg), black 15%); border: 1px solid color-mix(in srgb, var(--text-secondary) 15%, transparent); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+        .config-section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-color); font-weight: 600; border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 15%, transparent); padding-bottom: 0.4rem; }
+
+        .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        .form-label { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); }
+        .form-desc { font-size: 0.7rem; color: var(--text-secondary); line-height: 1.3; }
+        
+        .form-input-control { width: 100%; background: var(--bg-base); border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent); color: var(--text-primary); padding: 0.5rem 0.75rem; border-radius: 6px; font-family: var(--font-ui); font-size: 0.8rem; outline: none; transition: border-color 0.2s; }
+        .form-input-control:focus { border-color: var(--accent-color); }
+        select.form-input-control { cursor: pointer; }
+        textarea.form-input-control { font-family: var(--font-mono); font-size: 0.75rem; resize: vertical; min-height: 60px; }
+
+        /* Custom Inline Toggle Structure */
+        .toggle-wrapper { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0; }
+        .switch-control { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+        .switch-control input { opacity: 0; width: 0; height: 0; }
+        .slider-knob { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: color-mix(in srgb, var(--text-secondary) 30%, transparent); transition: .2s; border-radius: 34px; }
+        .slider-knob:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: var(--text-primary); transition: .2s; border-radius: 50%; }
+        input:checked + .slider-knob { background-color: var(--success); }
+        input:checked + .slider-knob:before { transform: translateX(18px); }
+
+        /* Live Script Execution Code Preview Box */
+        .script-preview-box { background: var(--bg-sidebar); border: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); border-radius: 6px; padding: 0.75rem 1rem; font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-primary); white-space: pre-wrap; word-break: break-all; margin-top: 0.5rem; line-height: 1.4; max-height: 120px; overflow-y: auto; }
+        
+        .config-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); padding-top: 1rem; margin-top: auto; flex-shrink: 0; }
+
+        /* --- PREMIUM SEGMENTED CONTROL BUTTONS --- */
+        .segmented-control {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+            margin-top: 0.25rem;
+        }
+        .segment-btn {
+            flex: 1;
+            background: transparent;
+            border: 1px solid color-mix(in srgb, var(--text-secondary) 30%, transparent);
+            color: var(--text-secondary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-family: var(--font-ui);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        .segment-btn:hover {
+            border-color: var(--text-secondary);
+            color: var(--text-primary);
+        }
+        .segment-btn.active {
+            border-color: var(--accent-color);
+            color: var(--bg-base);
+            background: var(--accent-color);
+        }
+
+        /* --- COMPACT MULTI-COLUMN CONFIG LAYOUTS --- */
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 0.75rem 1.5rem;
+            width: 100%;
+        }
+        
+        /* Inline compact toggle optimization overrides */
+        .config-section .toggle-wrapper {
+            background: color-mix(in srgb, var(--bg-base) 30%, transparent);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            border: 1px solid color-mix(in srgb, var(--text-secondary) 10%, transparent);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        /* Operational wrapper for conditional items */
+        .conditional-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            animation: fadeIn 0.2s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <aside class="left-rail">
+        <div class="brand-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+            </svg>
+            HomeOS
+        </div>
+        
+        <div class="metrics-group">
+            <div class="section-title">Hardware</div>
+            <div class="stat-row"><span class="stat-label">CPU Load</span><span class="stat-value" id="cpu-val">...</span></div>
+            <div class="stat-row"><span class="stat-label">Memory</span><span class="stat-value" id="mem-val">...</span></div>
+        </div>
+        
+        <div class="metrics-group" id="gpu-container">
+            <div class="section-title">Graphics Compute</div>
+            <div class="stat-row"><span class="stat-label">Scanning...</span></div>
+        </div>
+        
+        <div class="metrics-group" id="storage-container">
+            <div class="section-title">Storage Pools</div>
+            <div class="stat-row"><span class="stat-label">Scanning...</span></div>
+        </div>
+
+        <div class="metrics-group">
+            <div class="section-title">
+                Cluster Nodes
+                <button class="expand-toggle" id="nodeToggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Status Summary</span>
+                <span class="stat-value" id="node-summary">...</span>
+            </div>
+            <div class="node-list-container" id="nodeList"></div>
+        </div>
+
+        <a href="https://__PVE_HOST__:8006" target="_blank" class="static-link-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Proxmox Web UI
+        </a>
+
+        <button class="guarded-action" id="rebootBtn">Reboot Server<div class="action-progress" id="rebootProgress"></div></button>
+    </aside>
+
+    <main class="right-workspace">
+        <header class="workspace-header">
+            <h1 class="workspace-title">Applications</h1>
+            <div class="header-controls">
+                <button class="add-cat-btn" id="addCatBtn">[ + Category ]</button>
+                <button class="theme-btn" id="themeBtn">[ Theme Editor ]</button>
+                <button class="edit-toggle" id="editToggle">[ Edit Mode ]</button>
+            </div>
+        </header>
+
+        <div class="floating-panel" id="catEditorPanel" style="width: 280px; top: 4.5rem; right: 13.5rem;">
+            <div class="panel-header">
+                <span class="panel-title">Create Category</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <input type="text" id="newCatNameInput" class="save-theme-input" placeholder="Category name (e.g., Media)...">
+                <button id="submitCatBtn" class="save-theme-btn" style="width: 100%;">Add Divider Line</button>
+            </div>
+        </div>
+
+        <div class="floating-panel" id="themeEditorPanel" style="width: 330px; top: 4.5rem; right: 4rem;">
+            <div class="panel-header">
+                <span class="panel-title">Theme Presets</span>
+            </div>
+            <div class="theme-carousel" id="themeCarousel"></div>
+            <div class="editor-section-title">Live Editor</div>
+            <div id="colorInputsContainer" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+            <div class="save-theme-group">
+                <input type="text" id="newThemeName" class="save-theme-input" placeholder="Name your preset...">
+                <button id="saveThemeBtn" class="save-theme-btn">Save</button>
+            </div>
+            <button class="copy-json-btn" id="copyJsonBtn">Copy JSON Configuration</button>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; border-top: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); padding-top: 1.25rem;">
+                <span class="editor-section-title" style="margin-top: 0;">Import JSON</span>
+                <textarea id="importJsonInput" class="save-theme-input" placeholder="Paste JSON here..." rows="3" style="resize: vertical; min-height: 60px; font-family: var(--font-mono); font-size: 0.7rem;"></textarea>
+                <button id="importJsonBtn" class="save-theme-btn" style="width: 100%; margin-top: 0.2rem;">Import & Apply</button>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="modalBackdrop"></div>
+
+        <div class="floating-panel modal-panel" id="customDialogPanel" style="width: 400px; max-width: 90vw; z-index: 10000;">
+            <div class="panel-header">
+                <span class="panel-title" id="dialogTitle" style="color: var(--danger);">Confirm Action</span>
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-primary); line-height: 1.5; font-weight: 500;" id="dialogMessage">
+                Message goes here.
+            </div>
+            <div class="config-footer" style="border-top: none; padding-top: 0.5rem; justify-content: flex-end; gap: 0.75rem;">
+                <button class="save-theme-btn" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary);" id="dialogCancelBtn">Cancel</button>
+                <button class="save-theme-btn" style="background: var(--danger); color: var(--bg-base);" id="dialogConfirmBtn">Confirm</button>
+            </div>
+        </div>
+
+        <div class="floating-panel modal-panel" id="appEditPanel" style="width: 450px; max-width: 90vw; z-index: 10000;">
+            <div class="panel-header" style="border-bottom: none; padding-bottom: 0;">
+                <span class="panel-title" style="color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                    <img id="editAppIconPreview" src="" style="width: 24px; height: 24px; object-fit: contain; border-radius: 4px;">
+                    Edit <span id="editAppNameLabel" style="color: var(--accent-color);">App</span>
+                </span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 0.5rem;">
+                <div class="form-group">
+                    <label class="form-label">Application URL / IP Address</label>
+                    <input type="text" id="editAppUrlInput" class="form-input-control" placeholder="e.g., http://10.0.0.5:8080">
+                    <span class="form-desc" style="margin-top: 0.25rem;">Leave blank to use the automatically generated local domain route.</span>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Custom Icon Image (URL or Path)</label>
+                    <input type="text" id="editAppIconInput" class="form-input-control" placeholder="e.g., https://... or icons/custom.png">
+                    <span class="form-desc" style="margin-top: 0.25rem;">Provide a direct web link to an image, or a local file path.</span>
+                </div>
+            </div>
+            <div class="config-footer" style="padding-top: 1rem; margin-top: 0.5rem;">
+                <button class="save-theme-btn" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary);" id="editAppCancelBtn">Cancel</button>
+                <button class="save-theme-btn" style="background: var(--accent-color); color: var(--bg-base);" id="editAppSaveBtn">Save Overrides</button>
+            </div>
+        </div>
+
+        <div class="floating-panel modal-panel" id="appStorePanel" style="width: 850px; max-width: 90vw; height: 80vh;">
+            
+            <div id="storeBrowserView" class="store-view-container">
+                <div class="panel-header">
+                    <span class="panel-title">HomeOS App Store</span>
+                    <button class="expand-toggle" id="closeStoreBtn" style="transform: rotate(45deg);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                </div>
+                
+                <input type="text" id="storeSearchInput" class="store-search-bar" placeholder="Search community installation scripts (e.g., Plex, Home Assistant)...">
+                
+                <div class="store-category-track" id="storeCategoryTrack">
+                    <div class="store-cat-pill active" data-cat="all">All Packages</div>
+                </div>
+
+                <div class="store-grid" id="storeGridContainer">
+                    <div style="grid-column: 1/-1; text-align: center; color: var(--text-secondary); padding: 2rem;">Loading community scripts matrix...</div>
+                </div>
+            </div>
+
+            <div id="storeConfigView" class="store-view-container hidden">
+                <div class="config-header">
+                    <img id="configAppIcon" src="icons/default.png" style="width: 38px; height: 38px; object-fit: contain;">
+                    <div>
+                        <h2 id="configAppName" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">App Customization</h2>
+                        <span id="configAppMeta" style="font-size: 0.75rem; color: var(--text-secondary);">Deployment Configuration</span>
+                    </div>
+                </div>
+
+                <div class="config-scroll-area" id="configFormContent">
+                    </div>
+
+                <div class="config-footer" style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                    <button class="save-theme-btn" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary); flex-shrink: 0;" id="backToStoreBtn">&larr; Back to Store</button>
+                    
+                    <div id="installProgressMsg" style="font-size: 0.75rem; color: var(--text-secondary); opacity: 0; transition: opacity 0.3s; font-weight: 500; text-align: center; flex: 1; max-height: 36px; overflow-y: auto; line-height: 1.2; padding: 0 0.5rem; word-break: break-word; scrollbar-width: none;">This might take a while...</div>
+                    
+                    <button class="save-theme-btn" style="background: var(--success); color: var(--bg-base); flex-shrink: 0;" id="deployAppBtn">Install Application</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="app-grid" id="appGrid"></div>
+    </main>
+
+    <script>
+        // ==========================================
+        // 1. THE 9 CORE THEME VARIABLES
+        // ==========================================
+        const defaultThemes = {
+            odysseus: { name: "Odysseus", colors: { "--bg-base": "#1E2028", "--bg-sidebar": "#14151B", "--panel-bg": "#2D313A", "--text-primary": "#C9D1D9", "--text-secondary": "#7A8490", "--accent-color": "#FF7B72", "--selection-color": "#FF7B72", "--success": "#3FB950", "--danger": "#F85149" } },
+            abyss: { name: "Deep Abyss", colors: { "--bg-base": "#0B0E14", "--bg-sidebar": "#06080A", "--panel-bg": "#1A202C", "--text-primary": "#E2E8F0", "--text-secondary": "#4A5568", "--accent-color": "#00E676", "--selection-color": "#00E676", "--success": "#00E676", "--danger": "#EF4444" } },
+            monochrome: { name: "Monochrome", colors: { "--bg-base": "#111111", "--bg-sidebar": "#000000", "--panel-bg": "#222222", "--text-primary": "#FFFFFF", "--text-secondary": "#888888", "--accent-color": "#FFFFFF", "--selection-color": "#555555", "--success": "#FFFFFF", "--danger": "#888888" } }
+        };
+
+        const themeDefinitions = [
+            { key: "--bg-base", label: "Background Colour" },
+            { key: "--bg-sidebar", label: "Left Bar Colour" },
+            { key: "--panel-bg", label: "Panel Colour" },
+            { key: "--text-secondary", label: "Primary Text Colour" },
+            { key: "--text-primary", label: "Secondary Text Colour" },
+            { key: "--accent-color", label: "Accent Colour" },
+            { key: "--selection-color", label: "Selection Colour" },
+            { key: "--success", label: "Success" },
+            { key: "--danger", label: "Failure" }
+        ];
+        
+        let customThemes = {};
+        let currentThemeState = {};
+        let savedThemeName = 'odysseus';
+        let dashboardLayout = { grid_order: [], active_theme: 'odysseus', custom_themes: {} };
+        let lastApiData = null; 
+
+        function getAllThemes() { return { ...defaultThemes, ...customThemes }; }
+
+        // --- NEW: BACKEND API SYNC PIPELINE ---
+        async function saveLayoutToServer(updates) {
+            try {
+                await fetch('/api/layout/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+            } catch(e) { console.error("Server layout sync failed", e); }
+        }
+
+        async function saveAppToServer(vmid, updates) {
+            try {
+                await fetch('/api/app/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vmid: vmid, ...updates })
+                });
+                await fetchDashboardData(); // Instantly refresh the grid with the new backend data
+            } catch(e) { console.error("App settings sync failed", e); }
+        }
+
+        // ==========================================
+        // 2. DOM GENERATION FOR EDITOR
+        // ==========================================
+        const colorContainer = document.getElementById('colorInputsContainer');
+        themeDefinitions.forEach(def => {
+            const row = document.createElement('div'); row.className = 'color-row';
+            row.innerHTML = `
+                <span class="color-label">${def.label}</span>
+                <div class="color-control-group">
+                    <input type="text" class="color-hex-input" data-var="${def.key}" maxlength="7">
+                    <input type="color" class="color-picker" data-var="${def.key}">
+                </div>
+            `;
+            colorContainer.appendChild(row);
+        });
+
+        const pickers = document.querySelectorAll('.color-picker');
+        const hexInputs = document.querySelectorAll('.color-hex-input');
+
+        function renderThemeTiles() {
+            const carousel = document.getElementById('themeCarousel');
+            carousel.innerHTML = '';
+            const allThemes = getAllThemes();
+            
+            for (const [key, themeData] of Object.entries(allThemes)) {
+                const tile = document.createElement('div');
+                tile.className = `theme-tile ${savedThemeName === key ? 'active' : ''}`;
+                
+                const c1 = themeData.colors['--bg-base'] || '#000';
+                const c2 = themeData.colors['--bg-sidebar'] || '#000';
+                const c3 = themeData.colors['--accent-color'] || '#000';
+
+                const isCustom = key.startsWith('custom_');
+                const deleteBtnHtml = isCustom ? `
+                    <button class="theme-delete-btn" data-key="${key}" title="Delete Preset">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                ` : '';
+
+                tile.innerHTML = `
+                    ${deleteBtnHtml}
+                    <div class="theme-tile-colors">
+                        <div class="theme-color-dot" style="background: ${c1}; z-index: 3;"></div>
+                        <div class="theme-color-dot" style="background: ${c2}; z-index: 2;"></div>
+                        <div class="theme-color-dot" style="background: ${c3}; z-index: 1;"></div>
+                    </div>
+                    <div class="theme-tile-name" title="${themeData.name}">${themeData.name}</div>
+                `;
+                
+                tile.addEventListener('click', (e) => {
+                    const deleteBtn = e.target.closest('.theme-delete-btn');
+                    if (deleteBtn) {
+                        e.stopPropagation(); 
+                        const targetKey = deleteBtn.dataset.key;
+                        delete customThemes[targetKey];
+                        
+                        if (savedThemeName === targetKey) {
+                            savedThemeName = 'odysseus';
+                            applyThemeObject(defaultThemes['odysseus'].colors);
+                        }
+                        renderThemeTiles();
+                        saveLayoutToServer({ custom_themes: customThemes, active_theme: savedThemeName });
+                        return;
+                    }
+
+                    savedThemeName = key;
+                    applyThemeObject(allThemes[key].colors);
+                    renderThemeTiles(); 
+                    saveLayoutToServer({ active_theme: key });
+                });
+                carousel.appendChild(tile);
+            }
+        }
+
+        // ==========================================
+        // 3. THEME SYNCHRONIZATION LOGIC
+        // ==========================================
+        function updateColorPickers() {
+            pickers.forEach(p => { if(currentThemeState[p.dataset.var]) p.value = currentThemeState[p.dataset.var]; });
+            hexInputs.forEach(i => { if(currentThemeState[i.dataset.var]) i.value = currentThemeState[i.dataset.var].toUpperCase(); });
+        }
+
+        function applyThemeObject(themeObj) {
+            currentThemeState = { ...themeObj };
+            for (const [key, value] of Object.entries(currentThemeState)) {
+                document.documentElement.style.setProperty(key, value);
+            }
+            updateColorPickers();
+        }
+
+        function handleColorChange(variable, colorStr) {
+            document.documentElement.style.setProperty(variable, colorStr);
+            currentThemeState[variable] = colorStr;
+            savedThemeName = 'draft';
+            renderThemeTiles(); 
+            
+            const picker = document.querySelector(`.color-picker[data-var="${variable}"]`);
+            const hexInput = document.querySelector(`.color-hex-input[data-var="${variable}"]`);
+            if (picker && picker.value !== colorStr) picker.value = colorStr;
+            if (hexInput && hexInput.value !== colorStr.toUpperCase()) hexInput.value = colorStr.toUpperCase();
+        }
+
+        pickers.forEach(picker => picker.addEventListener('input', (e) => handleColorChange(e.target.dataset.var, e.target.value)));
+        
+        hexInputs.forEach(input => input.addEventListener('input', (e) => {
+            let val = e.target.value.trim();
+            if (!val.startsWith('#') && val.length > 0) { val = '#' + val; e.target.value = val; }
+            if (/^#[0-9A-Fa-f]{6}$/i.test(val)) handleColorChange(e.target.dataset.var, val);
+        }));
+
+        document.getElementById('saveThemeBtn').addEventListener('click', () => {
+            const input = document.getElementById('newThemeName');
+            const name = input.value.trim();
+            if (!name) return;
+
+            const safeKey = 'custom_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            customThemes[safeKey] = { name: name, colors: { ...currentThemeState } };
+            savedThemeName = safeKey;
+            
+            input.value = '';
+            applyThemeObject(currentThemeState);
+            renderThemeTiles();
+            
+            saveLayoutToServer({ custom_themes: customThemes, active_theme: safeKey });
+            
+            const carousel = document.getElementById('themeCarousel');
+            setTimeout(() => carousel.scrollTo({ left: carousel.scrollWidth, behavior: 'smooth' }), 50);
+        });
+
+        document.getElementById('copyJsonBtn').addEventListener('click', async (e) => {
+            const jsonStr = JSON.stringify(currentThemeState, null, 4);
+            const btn = e.target;
+            try {
+                if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(jsonStr);
+                else {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = jsonStr; textArea.style.position = "absolute"; textArea.style.left = "-999999px";
+                    document.body.prepend(textArea); textArea.select(); document.execCommand('copy'); textArea.remove();
+                }
+                btn.textContent = "Copied to Clipboard!"; btn.style.background = "var(--success)"; btn.style.color = "var(--bg-base)";
+                setTimeout(() => { btn.textContent = "Copy JSON Configuration"; btn.style.background = "color-mix(in srgb, var(--text-primary) 5%, transparent)"; btn.style.color = "var(--text-primary)"; }, 2000);
+            } catch (err) {
+                btn.textContent = "Copy Failed"; btn.style.background = "var(--danger)";
+                setTimeout(() => { btn.textContent = "Copy JSON Configuration"; btn.style.background = "color-mix(in srgb, var(--text-primary) 5%, transparent)"; }, 2000);
+            }
+        });
+
+        document.getElementById('importJsonBtn').addEventListener('click', () => {
+            const inputStr = document.getElementById('importJsonInput').value.trim();
+            const btn = document.getElementById('importJsonBtn');
+            if (!inputStr) return;
+            try {
+                const importedTheme = JSON.parse(inputStr);
+                if (importedTheme && typeof importedTheme === 'object' && importedTheme['--bg-base']) {
+                    applyThemeObject(importedTheme);
+                    savedThemeName = 'draft';
+                    renderThemeTiles(); 
+                    document.getElementById('importJsonInput').value = ''; 
+                    btn.textContent = "Theme Applied!"; btn.style.background = "var(--success)"; btn.style.color = "var(--bg-base)";
+                    setTimeout(() => { btn.textContent = "Import & Apply"; btn.style.background = "var(--text-secondary)"; }, 2000);
+                } else throw new Error("Invalid format");
+            } catch (e) {
+                btn.textContent = "Invalid JSON Format"; btn.style.background = "var(--danger)"; btn.style.color = "#fff";
+                setTimeout(() => { btn.textContent = "Import & Apply"; btn.style.background = "var(--text-secondary)"; }, 2000);
+            }
+        });
+
+        const themeBtn = document.getElementById('themeBtn');
+        const themeEditorPanel = document.getElementById('themeEditorPanel');
+        themeBtn.addEventListener('click', () => {
+            themeBtn.classList.toggle('active');
+            themeEditorPanel.classList.toggle('show');
+        });
+
+        // ==========================================
+        // 4. ACCORDION LOGIC
+        // ==========================================
+        const nodeToggle = document.getElementById('nodeToggle');
+        const nodeList = document.getElementById('nodeList');
+        nodeToggle.addEventListener('click', () => {
+            nodeToggle.classList.toggle('open');
+            nodeList.classList.toggle('expanded');
+        });
+
+        // ==========================================
+        // 5. EDIT MODE & DRAG LOGIC
+        // ==========================================
+        let isEditMode = false;
+        const editToggle = document.getElementById('editToggle');
+        
+        editToggle.addEventListener('click', () => {
+            isEditMode = !isEditMode;
+            document.body.classList.toggle('edit-mode-active', isEditMode);
+            editToggle.classList.toggle('active', isEditMode);
+            editToggle.textContent = isEditMode ? '[ Save Layout ]' : '[ Edit Mode ]';
+            
+            if (!isEditMode) {
+                themeBtn.classList.remove('active'); themeEditorPanel.classList.remove('show');
+                addCatBtn.classList.remove('active'); catEditorPanel.classList.remove('show');
+            }
+            if(lastApiData) renderApps(lastApiData.applications, lastApiData.stopped_apps, dashboardLayout);
+        });
+
+        const addCatBtn = document.getElementById('addCatBtn');
+        const catEditorPanel = document.getElementById('catEditorPanel');
+        const newCatNameInput = document.getElementById('newCatNameInput');
+
+        addCatBtn.addEventListener('click', () => {
+            addCatBtn.classList.toggle('active');
+            catEditorPanel.classList.toggle('show');
+            if (catEditorPanel.classList.contains('show')) {
+                newCatNameInput.value = '';
+                setTimeout(() => newCatNameInput.focus(), 50);
+            }
+        });
+
+        document.getElementById('submitCatBtn').addEventListener('click', executeCategoryCreation);
+        newCatNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') executeCategoryCreation(); });
+
+        function executeCategoryCreation() {
+            const catName = newCatNameInput.value.trim();
+            if (!catName) return;
+
+            const safeCatId = `__CAT__:${catName}`;
+            let savedOrder = dashboardLayout.grid_order || [];
+            
+            if (!savedOrder.includes(safeCatId)) {
+                savedOrder.push(safeCatId); // Spawns precisely at the bottom of the grid
+                dashboardLayout.grid_order = savedOrder;
+                
+                // Natively sync the updated layout array straight to the Python config database
+                saveLayoutToServer({ grid_order: savedOrder });
+            }
+
+            addCatBtn.classList.remove('active');
+            catEditorPanel.classList.remove('show');
+            
+            // Fixed parameter signature to prevent undefined grid render crashes
+            if (lastApiData) {
+                renderApps(lastApiData.applications, lastApiData.stopped_apps, dashboardLayout);
+            }
+        }
+
+        let draggedItem = null;
+        function initializeDragEvents(el) {
+            el.addEventListener('dragstart', function(e) { 
+                if(!isEditMode) { e.preventDefault(); return; } 
+                draggedItem = this; 
+                setTimeout(() => this.classList.add('dragging'), 0); 
+            });
+            el.addEventListener('dragend', function() { 
+                this.classList.remove('dragging'); 
+                document.querySelectorAll('.app-card, .grid-category-divider').forEach(c => c.classList.remove('drag-over')); 
+                draggedItem = null; 
+                saveGridOrder(); 
+            });
+            el.addEventListener('dragover', function(e) { 
+                e.preventDefault(); 
+                if (!draggedItem || this === draggedItem || this.parentElement !== draggedItem.parentElement) return;
+                const rect = this.getBoundingClientRect();
+                const isAfter = (e.clientX > rect.left + rect.width / 2) || (e.clientY > rect.top + rect.height / 2);
+                if (isAfter) this.after(draggedItem);
+                else this.before(draggedItem);
+            });
+            el.addEventListener('dragleave', function() { this.classList.remove('drag-over'); });
+            el.addEventListener('drop', function(e) { 
+                e.preventDefault(); this.classList.remove('drag-over'); 
+                saveGridOrder(); 
+            });
+        }
+
+        async function saveGridOrder() {
+            const grid = document.getElementById('appGrid');
+            let currentIds = [...grid.querySelectorAll('.app-card, .grid-category-divider')].map(item => item.dataset.id);
+            
+            // ABSOLUTE LOCK: Prevents the App Store from ever being displaced by rogue dragging
+            currentIds = currentIds.filter(id => id !== '__STORE__');
+            currentIds.unshift('__STORE__');
+            
+            // 1. Sync the active state directly to JavaScript's master layout variable
+            dashboardLayout.grid_order = currentIds;
+            
+            // 2. Deliver only the necessary tracking array down our optimized sync pipeline
+            saveLayoutToServer({ grid_order: currentIds });
+            
+            // 3. FIXED: Re-render the grid passing ALL core array contexts to guarantee flawless stability
+            if (isEditMode && lastApiData) {
+                renderApps(lastApiData.applications, lastApiData.stopped_apps, dashboardLayout);
+            }
+        }
+
+        // --- APP STORE CORE FRONTEND ENGINE ---
+        const appStorePanel = document.getElementById('appStorePanel');
+        const closeStoreBtn = document.getElementById('closeStoreBtn');
+        const storeSearchInput = document.getElementById('storeSearchInput');
+        const storeCategoryTrack = document.getElementById('storeCategoryTrack');
+        const storeGridContainer = document.getElementById('storeGridContainer');
+        const storeBrowserView = document.getElementById('storeBrowserView');
+        const storeConfigView = document.getElementById('storeConfigView');
+        const backToStoreBtn = document.getElementById('backToStoreBtn');
+        const deployAppBtn = document.getElementById('deployAppBtn');
+
+        let storeCatalogData = [];
+        let flagsBlueprintMatrix = null;
+        let selectedStoreCategory = 'all';
+        let activelySelectedApp = null;
+        const modalBackdrop = document.getElementById('modalBackdrop');
+
+        function toggleAppStorePanel(show) {
+            if (show) {
+                themeBtn.classList.remove('active'); themeEditorPanel.classList.remove('show');
+                addCatBtn.classList.remove('active'); catEditorPanel.classList.remove('show');
+                modalBackdrop.classList.add('show'); appStorePanel.classList.add('show');
+                switchStoreView('browser'); fetchStoreCatalog();
+            } else {
+                modalBackdrop.classList.remove('show'); appStorePanel.classList.remove('show');
+            }
+        }
+
+        function switchStoreView(viewMode) {
+            if (viewMode === 'config') {
+                storeBrowserView.classList.add('hidden'); storeConfigView.classList.remove('hidden');
+            } else {
+                storeConfigView.classList.add('hidden'); storeBrowserView.classList.remove('hidden'); activelySelectedApp = null;
+            }
+        }
+
+        closeStoreBtn.addEventListener('click', () => toggleAppStorePanel(false));
+        modalBackdrop.addEventListener('click', () => toggleAppStorePanel(false));
+        backToStoreBtn.addEventListener('click', () => switchStoreView('browser'));
+
+        async function loadFlagsBlueprint() {
+            if (flagsBlueprintMatrix) return;
+            try {
+                const res = await fetch('/flags_blueprint.json');
+                if (res.ok) flagsBlueprintMatrix = await res.json();
+            } catch (e) {}
+        }
+
+        async function fetchStoreCatalog() {
+            try {
+                await Promise.all([loadFlagsBlueprint(), fetch('/api/store/catalog').then(r => r.json())])
+                    .then(([_, data]) => {
+                        storeCatalogData = data.apps || [];
+                        renderStoreCategories(); renderStoreGrid();
+                    });
+            } catch (err) {
+                storeGridContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--danger);">Failed to query repository metrics: ${err.message}</div>`;
+            }
+        }
+
+        function renderStoreCategories() {
+            const categories = ['all', ...new Set(storeCatalogData.map(app => app.category || 'Available Scripts'))];
+            storeCategoryTrack.innerHTML = '';
+            categories.forEach(cat => {
+                const pill = document.createElement('div');
+                pill.className = `store-cat-pill ${selectedStoreCategory === cat ? 'active' : ''}`;
+                pill.textContent = cat === 'all' ? 'All Packages' : cat;
+                pill.addEventListener('click', () => {
+                    selectedStoreCategory = cat;
+                    document.querySelectorAll('.store-cat-pill').forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active'); renderStoreGrid();
+                });
+                storeCategoryTrack.appendChild(pill);
+            });
+        }
+
+        function renderStoreGrid() {
+            const query = storeSearchInput.value.toLowerCase().trim();
+            storeGridContainer.innerHTML = '';
+
+            const filtered = storeCatalogData.filter(app => {
+                const matchesSearch = app.name.toLowerCase().includes(query) || app.id.toLowerCase().includes(query);
+                const matchesCat = selectedStoreCategory === 'all' || app.category === selectedStoreCategory;
+                return matchesSearch && matchesCat;
+            });
+
+            if (filtered.length === 0) {
+                storeGridContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center; color:var(--text-secondary); padding:2rem;">No matching helper scripts discovered.</div>'; return;
+            }
+
+            filtered.forEach(app => {
+                const card = document.createElement('div'); card.className = 'store-item-card';
+                const fallbackUrl = app.fallback_icon || 'icons/default.png';
+                card.innerHTML = `
+                    <div class="store-item-header">
+                        <img src="${app.icon || fallbackUrl}" class="store-item-icon" onerror="if (this.dataset.failed !== '1') { this.dataset.failed = '1'; this.src = '${fallbackUrl}'; } else { this.onerror = null; this.src = 'icons/default.png'; }">
+                        <span class="store-item-title">${app.name}</span>
+                    </div>
+                    <div class="store-item-desc">${app.description}</div>
+                    <button class="store-install-btn" onclick="triggerAppSetupModal('${app.id}', '${app.name}', '${app.script_url}', '${app.icon}')">Install Package</button>
+                `;
+                storeGridContainer.appendChild(card);
+            });
+        }
+
+        storeSearchInput.addEventListener('input', renderStoreGrid);
+
+        window.triggerAppSetupModal = function(id, name, scriptUrl, iconUrl) {
+            activelySelectedApp = { id, name, scriptUrl, iconUrl };
+            window.activeConfigState = { mode: 'appdefaults', var_net: 'dhcp' };
+            
+            document.getElementById('configAppIcon').src = iconUrl || 'icons/default.png';
+            document.getElementById('configAppName').textContent = name;
+            document.getElementById('configAppMeta').textContent = `Script Route: ${id}.sh`;
+            
+            const formContainer = document.getElementById('configFormContent');
+            formContainer.innerHTML = ''; 
+
+            const modeSection = document.createElement('div');
+            modeSection.className = 'config-section';
+            modeSection.innerHTML = `
+                <div class="config-section-title">Deployment Strategy</div>
+                <div class="form-group">
+                    <label class="form-label">Installation Profile Mode</label>
+                    <div class="segmented-control" id="modeSegmentControl">
+                        <button class="segment-btn active" data-val="appdefaults">App Defaults</button>
+                        <button class="segment-btn" data-val="mydefaults">User Presets</button>
+                        <button class="segment-btn" data-val="generated">Advanced Setup</button>
+                    </div>
+                    <span class="form-desc" id="modeDescriptionLabel" style="margin-top:0.4rem;">Provision instantly utilizing standard open-source optimization defaults variables setup.</span>
+                </div>
+            `;
+            formContainer.appendChild(modeSection);
+
+            const advancedParamsContainer = document.createElement('div');
+            advancedParamsContainer.id = 'advancedParamsContainer';
+            advancedParamsContainer.style.display = 'none';
+            advancedParamsContainer.style.flexDirection = 'column';
+            advancedParamsContainer.style.gap = '1.5rem';
+
+            let netBlock = null;
+
+            if (flagsBlueprintMatrix) {
+                if (flagsBlueprintMatrix.basic_settings) {
+                    const basicBlock = document.createElement('div');
+                    basicBlock.className = 'config-section';
+                    basicBlock.innerHTML = `<div class="config-section-title">Basic Provisioning Resources</div>`;
+                    for (const [varName, fieldConfig] of Object.entries(flagsBlueprintMatrix.basic_settings)) {
+                        const row = document.createElement('div'); row.className = 'form-group';
+                        let derivedDefault = fieldConfig.default;
+                        if (varName === 'var_hostname') derivedDefault = name.replace(/[^a-zA-Z0-9]/g, '');
+                        row.innerHTML = `
+                            <label class="form-label">${fieldConfig.label}</label>
+                            <input type="${fieldConfig.type}" class="form-input-control blueprint-input-field" data-var="${varName}" data-type="standard" value="${derivedDefault}">
+                        `;
+                        basicBlock.appendChild(row);
+                    }
+                    advancedParamsContainer.appendChild(basicBlock);
+                }
+
+                netBlock = document.createElement('div');
+                netBlock.className = 'config-section';
+                netBlock.innerHTML = `
+                    <div class="config-section-title">Network Configuration Routing</div>
+                    <div class="form-group">
+                        <label class="form-label">IP Assignment Allocation Type</label>
+                        <div class="segmented-control" id="netSegmentControl">
+                            <button class="segment-btn active" data-val="dhcp">DHCP Engine</button>
+                            <button class="segment-btn" data-val="static">Static Allocation</button>
+                        </div>
+                    </div>
+                    <div class="conditional-group" id="staticNetFields" style="display: none;"></div>
+                `;
+                
+                const staticWrapper = netBlock.querySelector('#staticNetFields');
+                for (const [varName, fieldConfig] of Object.entries(flagsBlueprintMatrix.network_routing)) {
+                    if (varName === 'var_net') continue; 
+                    const row = document.createElement('div'); row.className = 'form-group';
+                    row.innerHTML = `
+                        <label class="form-label">${fieldConfig.label}</label>
+                        <input type="text" class="form-input-control blueprint-input-field" data-var="${varName}" data-type="standard" value="${fieldConfig.default}">
+                    `;
+                    staticWrapper.appendChild(row);
+                }
+                advancedParamsContainer.appendChild(netBlock);
+
+                const optionsBlock = document.createElement('div');
+                optionsBlock.className = 'config-section';
+                optionsBlock.innerHTML = `<div class="config-section-title">Container Variable Settings Matrix</div>`;
+                const gridContainer = document.createElement('div');
+                gridContainer.className = 'toggle-grid';
+
+                const appendToggleElement = (varName, label, checkedState, isStrOutput, invertVal) => {
+                    const item = document.createElement('div'); item.className = 'toggle-wrapper';
+                    item.innerHTML = `
+                        <span class="form-label" style="font-size:0.75rem; padding-right:0.5rem;">${label}</span>
+                        <label class="switch-control">
+                            <input type="checkbox" class="blueprint-input-field" data-var="${varName}" data-type="toggle" ${checkedState ? 'checked' : ''} data-invert="${invertVal || ''}" data-strout="${isStrOutput || ''}">
+                            <span class="slider-knob"></span>
+                        </label>
+                    `;
+                    gridContainer.appendChild(item);
+                };
+
+                for (const [varName, fieldConfig] of Object.entries(flagsBlueprintMatrix.advanced_privileges)) {
+                    appendToggleElement(varName, fieldConfig.label, fieldConfig.default, false, fieldConfig.invert_value);
+                }
+                if (flagsBlueprintMatrix.hardware_passthrough && flagsBlueprintMatrix.hardware_passthrough.var_gpu) {
+                    appendToggleElement('var_gpu', flagsBlueprintMatrix.hardware_passthrough.var_gpu.label, false, false, '');
+                }
+                if (flagsBlueprintMatrix.provisioning_tweaks) {
+                    for (const [varName, fieldConfig] of Object.entries(flagsBlueprintMatrix.provisioning_tweaks)) {
+                        if (fieldConfig.type !== 'toggle' || varName === 'var_verbose') continue; 
+                        let defaultCheckState = fieldConfig.default;
+                        if (varName === 'var_ssh') defaultCheckState = false;
+                        appendToggleElement(varName, fieldConfig.label, defaultCheckState, fieldConfig.string_output, '');
+                    }
+                }
+                optionsBlock.appendChild(gridContainer);
+                
+                if (flagsBlueprintMatrix.provisioning_tweaks && flagsBlueprintMatrix.provisioning_tweaks.var_ssh_authorized_key) {
+                    const f = flagsBlueprintMatrix.provisioning_tweaks.var_ssh_authorized_key;
+                    const sshKeyRow = document.createElement('div'); sshKeyRow.className = 'form-group'; sshKeyRow.style.marginTop = '1rem';
+                    sshKeyRow.innerHTML = `
+                        <label class="form-label">${f.label}</label>
+                        <textarea class="form-input-control blueprint-input-field" data-var="var_ssh_authorized_key" data-type="textarea" placeholder="Paste structural public elements key string..."></textarea>
+                    `;
+                    optionsBlock.appendChild(sshKeyRow);
+                }
+                advancedParamsContainer.appendChild(optionsBlock);
+            }
+            formContainer.appendChild(advancedParamsContainer);
+
+            const previewSection = document.createElement('div');
+            previewSection.className = 'config-section';
+            previewSection.innerHTML = `
+                <div class="config-section-title">Engine Execution Preview</div>
+                <div class="script-preview-box" id="liveBashPreviewString">Compiling simulation instructions payload...</div>
+            `;
+            formContainer.appendChild(previewSection);
+
+            const modeButtons = modeSection.querySelectorAll('#modeSegmentControl .segment-btn');
+            const descLabel = document.getElementById('modeDescriptionLabel');
+            const modeDescriptions = { appdefaults: "Provision instantly utilizing standard open-source optimization defaults variables setup.", mydefaults: "Bypass manual prompt setup rules by executing via your cluster node's pre-saved local host customization file profiles.", generated: "Expose advanced variable override tuning matrix parameters to customize installation completely." };
+
+            modeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modeButtons.forEach(b => b.classList.remove('active')); btn.classList.add('active');
+                    window.activeConfigState.mode = btn.dataset.val; descLabel.textContent = modeDescriptions[btn.dataset.val];
+                    advancedParamsContainer.style.display = btn.dataset.val === 'generated' ? 'flex' : 'none';
+                    generateLiveBashPreviewString();
+                });
+            });
+
+            if (netBlock) {
+                const netButtons = netBlock.querySelectorAll('#netSegmentControl .segment-btn');
+                const staticFieldsWrapper = netBlock.querySelector('#staticNetFields');
+                netButtons.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        netButtons.forEach(b => b.classList.remove('active')); btn.classList.add('active');
+                        window.activeConfigState.var_net = btn.dataset.val;
+                        staticFieldsWrapper.style.display = btn.dataset.val === 'static' ? 'flex' : 'none';
+                        generateLiveBashPreviewString();
+                    });
+                });
+            }
+
+            formContainer.addEventListener('input', generateLiveBashPreviewString);
+            formContainer.addEventListener('change', generateLiveBashPreviewString);
+            switchStoreView('config'); generateLiveBashPreviewString();
+        };
+
+        function generateLiveBashPreviewString() {
+            if (!activelySelectedApp) return;
+            const previewBox = document.getElementById('liveBashPreviewString');
+            const selectedMode = window.activeConfigState.mode;
+            let commandString = `export TERM=xterm;\nexport DEBIAN_FRONTEND=noninteractive;\nexport mode="generated";\n`;
+
+            if (selectedMode === 'generated') {
+                commandString += `export var_verbose="yes";\n`;
+                const inputs = document.querySelectorAll('.blueprint-input-field');
+                inputs.forEach(input => {
+                    const varName = input.dataset.var; const type = input.dataset.type; let value = "";
+                    if (type === 'toggle') {
+                        if (input.checked) value = input.dataset.strout === "true" ? "yes" : "1";
+                        else value = input.dataset.invert ? input.dataset.invert : (input.dataset.strout === "true" ? "no" : "0");
+                    } else { value = input.value.trim(); }
+
+                    if (window.activeConfigState.var_net === 'dhcp') { if (varName === 'var_net_ip' || varName === 'var_gateway') return; }
+                    if (value !== "") commandString += `export ${varName}="${value}";\n`;
+                });
+                commandString += `export var_net="${window.activeConfigState.var_net}";\n`;
+            }
+            commandString += `bash -c "$(curl -fsSL ${activelySelectedApp.scriptUrl})"`;
+            previewBox.textContent = commandString;
+        }
+
+        // --- DEPLOYMENT EXECUTION TRIGGER ---
+        deployAppBtn.addEventListener('click', async () => {
+            if (!activelySelectedApp) return;
+            const btn = deployAppBtn; const originalText = btn.textContent;
+            const progressMsg = document.getElementById('installProgressMsg');
+            
+            btn.textContent = "Deploying..."; btn.style.opacity = "0.7"; btn.style.pointerEvents = "none"; progressMsg.style.opacity = "1";
+
+            const previewBox = document.getElementById('liveBashPreviewString');
+            const deploymentPayload = { id: activelySelectedApp.id, command: previewBox.textContent, icon_url: activelySelectedApp.iconUrl };
+
+            try {
+                const res = await fetch('/api/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(deploymentPayload) });
+
+                if (res.ok) {
+                    // FIXED: We completely removed localStorage dependencies! The Python server automatically queues the IP.
+                    btn.textContent = "Deployment Complete!"; btn.style.background = "var(--success)"; progressMsg.style.opacity = "0";
+                    setTimeout(() => {
+                        toggleAppStorePanel(false); btn.textContent = originalText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto";
+                        fetchDashboardData(); // Force an immediate refresh so the new app drops onto the screen
+                    }, 2000);
+                } else {
+                    const errorData = await res.json(); throw new Error(errorData.error || "Unknown execution route failure.");
+                }
+            } catch (err) {
+                console.error(err);
+                btn.textContent = "Deployment Failed"; btn.style.background = "var(--danger)";
+                progressMsg.textContent = err.message; progressMsg.style.color = "var(--danger)"; progressMsg.style.opacity = "1"; 
+                setTimeout(() => {
+                    btn.textContent = originalText; btn.style.opacity = "1"; btn.style.pointerEvents = "auto"; btn.style.background = "var(--success)";
+                    progressMsg.textContent = "This might take a while..."; progressMsg.style.color = "var(--text-secondary)"; progressMsg.style.opacity = "0";
+                }, 8000); 
+            }
+        });
+
+        // ==========================================
+        // 6. CUSTOM MODAL ALERTS
+        // ==========================================
+        const customDialogPanel = document.getElementById('customDialogPanel');
+        const dialogTitle = document.getElementById('dialogTitle');
+        const dialogMessage = document.getElementById('dialogMessage');
+        const dialogCancelBtn = document.getElementById('dialogCancelBtn');
+        const dialogConfirmBtn = document.getElementById('dialogConfirmBtn');
+
+        window.showCustomAlert = function(title, message) {
+            dialogTitle.textContent = title; dialogTitle.style.color = "var(--accent-color)"; dialogMessage.textContent = message;
+            dialogCancelBtn.style.display = 'none'; dialogConfirmBtn.textContent = 'Close'; dialogConfirmBtn.style.background = 'var(--text-secondary)';
+            dialogConfirmBtn.style.opacity = "1"; dialogConfirmBtn.style.pointerEvents = "auto"; dialogCancelBtn.style.pointerEvents = "auto";
+            dialogConfirmBtn.onclick = () => { customDialogPanel.classList.remove('show'); modalBackdrop.classList.remove('show'); };
+            modalBackdrop.classList.add('show'); customDialogPanel.classList.add('show');
+        };
+
+        window.showCustomConfirm = function(title, message, actionText, onConfirm) {
+            dialogTitle.textContent = title; dialogTitle.style.color = "var(--danger)"; dialogMessage.textContent = message;
+            dialogCancelBtn.style.display = 'block'; dialogCancelBtn.style.pointerEvents = "auto";
+            dialogConfirmBtn.textContent = actionText; dialogConfirmBtn.style.background = 'var(--danger)'; dialogConfirmBtn.style.opacity = "1"; dialogConfirmBtn.style.pointerEvents = "auto";
+            dialogCancelBtn.onclick = () => { customDialogPanel.classList.remove('show'); modalBackdrop.classList.remove('show'); };
+            dialogConfirmBtn.onclick = () => { onConfirm(); };
+            modalBackdrop.classList.add('show'); customDialogPanel.classList.add('show');
+        };
+        
+        // HIDE APP LOGIC (For Edit Mode)
+        window.toggleHideApp = function(event, appId) {
+            event.preventDefault(); event.stopPropagation(); 
+            if(!lastApiData) return;
+            const app = [...(lastApiData.applications || []), ...(lastApiData.stopped_apps || [])].find(a => String(a.id) === String(appId));
+            if(!app) return;
+            
+            const isNowHidden = !(app.is_hidden === true);
+            app.is_hidden = isNowHidden; 
+
+            // INSTANT UI FEEDBACK: Flip the CSS manually so you don't have to wait for the backend sync loop!
+            const targetCard = event.currentTarget.closest('.app-card');
+            if (targetCard) {
+                targetCard.classList.toggle('hidden-app-card', isNowHidden);
+                const iconImg = targetCard.querySelector('.app-icon');
+                if (iconImg) iconImg.classList.toggle('dimmed', isNowHidden);
+                
+                const svg = event.currentTarget.querySelector('svg');
+                if (svg) {
+                    svg.innerHTML = isNowHidden 
+                        ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>' 
+                        : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+                }
+            }
+
+            try {
+                fetch('/api/app/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vmid: appId, is_hidden: isNowHidden })
+                });
+            } catch(e) {}
+        };
+
+        window.deleteAppFromServer = async function(event, appId, appName) {
+            event.preventDefault(); event.stopPropagation();
+            const targetBtn = event.currentTarget;
+            const msg = `Are you absolutely sure you want to PERMANENTLY DESTROY "${appName}" (VMID: ${appId})? This will instantly wipe its disk from the Proxmox server.`;
+            
+            window.showCustomConfirm("Destroy Container", msg, "Destroy Data", async () => {
+                dialogConfirmBtn.textContent = "Destroying..."; dialogConfirmBtn.style.opacity = "0.7"; dialogConfirmBtn.style.pointerEvents = "none"; dialogCancelBtn.style.pointerEvents = "none";
+                const svgIcon = targetBtn.querySelector('svg');
+                if (svgIcon) { svgIcon.classList.add('icon-spin'); svgIcon.innerHTML = `<path d="M21 12a9 9 0 1 1-6.219-8.56"></path>`; }
+
+                try {
+                    const res = await fetch('/api/delete_app', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vmid: appId }) });
+                    if (res.ok) {
+                        customDialogPanel.classList.remove('show'); modalBackdrop.classList.remove('show');
+                        const deadCard = targetBtn.closest('.app-card');
+                        if (deadCard) {
+                            deadCard.style.transition = "all 0.2s ease"; deadCard.style.transform = "scale(0.8)"; deadCard.style.opacity = "0";
+                            setTimeout(() => deadCard.remove(), 200);
+                        }
+                        setTimeout(fetchDashboardData, 3000); 
+                    } else {
+                        const err = await res.json(); window.showCustomAlert("Destruction Failed", err.error);
+                        if (svgIcon) svgIcon.classList.remove('icon-spin');
+                    }
+                } catch(e) { window.showCustomAlert("Network Error", "Failed to connect to the backend execution engine."); if (svgIcon) svgIcon.classList.remove('icon-spin'); }
+            });
+        };
+
+        window.deleteCategory = function(catId) {
+            let savedOrder = dashboardLayout.grid_order || [];
+            savedOrder = savedOrder.filter(id => id !== catId);
+            dashboardLayout.grid_order = savedOrder;
+            saveLayoutToServer({ grid_order: savedOrder });
+            if(lastApiData) renderApps(lastApiData.applications, lastApiData.stopped_apps, dashboardLayout);
+        };
+
+        // --- APP OVERRIDES MODAL ---
+        const appEditPanel = document.getElementById('appEditPanel');
+        const editAppUrlInput = document.getElementById('editAppUrlInput');
+        const editAppIconInput = document.getElementById('editAppIconInput');
+        const editAppIconPreview = document.getElementById('editAppIconPreview');
+        let activelyEditingAppId = null;
+
+        editAppIconInput.addEventListener('input', (e) => { const val = e.target.value.trim(); if (val) editAppIconPreview.src = val; });
+
+        window.editAppConfig = function(event, appId) {
+            event.preventDefault(); event.stopPropagation();
+            if (!lastApiData) return;
+            const appData = [...(lastApiData.applications || []), ...(lastApiData.stopped_apps || [])].find(a => String(a.id) === String(appId));
+            if (!appData) return;
+
+            activelyEditingAppId = appId;
+            const safeDomain = appData.raw_name ? appData.raw_name.toLowerCase() : appData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+            const currentUrl = appData.custom_url ? appData.custom_url : `http://${safeDomain}.local`;
+
+            // ALWAYS display the exact active icon string (whether default 'icons/app.png' or a custom URL)
+            const activeIconString = appData.custom_icon ? appData.custom_icon : appData.icon;
+            editAppIconInput.value = activeIconString;
+            
+            // Ensure the preview image renders correctly whether it's a full web URL or a relative local path
+            editAppIconPreview.src = activeIconString.startsWith('http') ? activeIconString : `${window.location.origin}/${activeIconString}`;
+
+            document.getElementById('editAppNameLabel').textContent = appData.name;
+            editAppUrlInput.value = currentUrl; 
+
+            modalBackdrop.classList.add('show'); appEditPanel.classList.add('show');
+        };
+
+        document.getElementById('editAppCancelBtn').addEventListener('click', () => { appEditPanel.classList.remove('show'); modalBackdrop.classList.remove('show'); activelyEditingAppId = null; });
+
+        document.getElementById('editAppSaveBtn').addEventListener('click', () => {
+            if (!activelyEditingAppId) return;
+
+            const newUrl = editAppUrlInput.value.trim();
+            const newIcon = editAppIconInput.value.trim();
+
+            // INSTANT MEMORY SYNC: Prevent flicker when exiting Edit Mode
+            if (lastApiData) {
+                const appData = [...(lastApiData.applications || []), ...(lastApiData.stopped_apps || [])].find(a => String(a.id) === String(activelyEditingAppId));
+                if (appData) {
+                    // 1. Update Javascript's local memory instantly
+                    if (newUrl) appData.custom_url = newUrl; else delete appData.custom_url;
+                    if (newIcon) appData.custom_icon = newIcon; else delete appData.custom_icon;
+                    
+                    // 2. Update the grid visually without triggering a full redraw
+                    const targetCard = document.querySelector(`.app-card[data-id="${activelyEditingAppId}"]`);
+                    if (targetCard) {
+                        const iconImg = targetCard.querySelector('.app-icon');
+                        if (iconImg) {
+                            iconImg.src = appData.custom_icon ? appData.custom_icon : `${window.location.origin}/${appData.icon}`;
+                        }
+                    }
+                }
+            }
+
+            // Sync with Python Backend
+            try {
+                fetch('/api/app/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vmid: activelyEditingAppId, url: newUrl, icon: newIcon })
+                });
+            } catch(e) { console.error("Failed to save overrides", e); }
+
+            // Close Modal
+            appEditPanel.classList.remove('show');
+            modalBackdrop.classList.remove('show');
+            activelyEditingAppId = null;
+        });
+
+        // ==========================================
+        // 7. CORE RENDERING ENGINE (DUMB UI)
+        // ==========================================
+        function renderApps(runningApps, stoppedApps, layoutConfig) {
+            const grid = document.getElementById('appGrid');
+            const baseUrl = window.location.origin;
+            let savedOrder = layoutConfig.grid_order || [];
+            
+            // Generate the complete unified app list provided by the server
+            const allApps = [...(runningApps || []), ...(stoppedApps || [])].filter(a => a.id.toString() !== '100');
+
+            if (!savedOrder.includes('__STORE__')) savedOrder.unshift('__STORE__');
+            
+            let orderChanged = false;
+            allApps.forEach(app => {
+                if (!savedOrder.includes(app.id.toString())) {
+                    savedOrder.push(app.id.toString());
+                    orderChanged = true;
+                }
+            });
+            if (orderChanged) saveLayoutToServer({ grid_order: savedOrder });
+
+            grid.innerHTML = ''; 
+            
+            savedOrder.forEach(itemId => {
+                if (itemId === '__STORE__') {
+                    const card = document.createElement('a'); card.className = 'app-card'; card.draggable = false; card.dataset.id = '__STORE__';
+                    card.href = 'javascript:void(0)';
+                    card.addEventListener('click', () => { if (!isEditMode) toggleAppStorePanel(true); });
+                    card.innerHTML = `<svg class="app-icon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="padding: 2px;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg><span class="app-name">App Store</span>`;
+                    grid.appendChild(card);
+
+                } else if (itemId.startsWith('__CAT__:')) {
+                    const catName = itemId.replace('__CAT__:', '');
+                    const div = document.createElement('div');
+                    div.className = isEditMode ? 'grid-category-divider edit-mode-card' : 'grid-category-divider';
+                    div.draggable = isEditMode; div.dataset.id = itemId;
+                    const deleteAction = isEditMode ? `<button class="cat-delete-btn" onclick="deleteCategory('${itemId}')">[ Delete ]</button>` : '';
+                    div.innerHTML = `<div class="grid-category-header"><span>${catName}</span>${deleteAction}</div><hr class="grid-category-line" />`;
+                    initializeDragEvents(div); grid.appendChild(div);
+
+                } else {
+                    const app = allApps.find(a => a.id.toString() === itemId);
+                    if (!app) return; 
+
+                    const isHidden = app.is_hidden === true;
+                    if (!isEditMode && isHidden) return; 
+
+                    const isOffline = app.status === 'stopped';
+                    const safeRawFallback = app.raw_name ? app.raw_name.toLowerCase() : app.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                    
+                    // Native usage of pre-computed Python JSON!
+                    const customUrl = app.custom_url ? app.custom_url : `http://${safeRawFallback}.local`;
+                    const customIcon = app.custom_icon ? app.custom_icon : `${baseUrl}/${app.icon}`;
+
+                    const card = document.createElement('a');
+                    card.className = isEditMode ? `app-card edit-mode-card ${isHidden ? 'hidden-app-card' : ''}` : `app-card ${isOffline ? 'offline-app-card' : ''}`;
+                    card.draggable = isEditMode; card.dataset.id = app.id;
+                    
+                    if (isEditMode || isOffline) { card.href = 'javascript:void(0)'; if (isOffline && !isEditMode) card.title = "Container is currently offline"; } 
+                    else { card.href = customUrl; card.target = '_blank'; }
+
+                    const deleteBtnHtml = isEditMode ? `<button class="app-delete-btn" onclick="window.deleteAppFromServer(event, '${app.id}', '${app.name}')" title="Permanently Destroy Container"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>` : '';
+                    const editBtnHtml = isEditMode ? `<button class="app-edit-btn" onclick="window.editAppConfig(event, '${app.id}')" title="Edit Configuration"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>` : '';
+                    const hideBtnHtml = isEditMode ? `<button class="app-hide-btn" onclick="window.toggleHideApp(event, '${app.id}')" title="${isHidden ? 'Unhide Application' : 'Hide Application'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${isHidden ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>' : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>'}</svg></button>` : '';
+
+                    card.innerHTML = `${deleteBtnHtml}${editBtnHtml}${hideBtnHtml}<img src="${customIcon}" class="app-icon ${isHidden ? 'dimmed' : ''}" alt="${app.name}" onerror="this.src='${baseUrl}/icons/default.png'"><span class="app-name">${app.name}</span>`;
+                    
+                    initializeDragEvents(card); grid.appendChild(card);
+                }
+            });
+        }
+
+        function renderClusterNodes(runningApps, stoppedApps) {
+            try {
+                const container = document.getElementById('nodeList');
+                const summary = document.getElementById('node-summary');
+                const uniqueNodesMap = new Map();
+                
+                if (runningApps) runningApps.forEach(app => { if (app && app.id) uniqueNodesMap.set(String(app.id), { id: app.id, name: app.name || 'Unknown', status: app.status || 'running' }); });
+                if (stoppedApps) stoppedApps.forEach(app => { if (app && app.id) uniqueNodesMap.set(String(app.id), { id: app.id, name: app.name || 'Unknown', status: 'stopped' }); });
+                
+                const allNodes = Array.from(uniqueNodesMap.values());
+                allNodes.sort((a, b) => parseInt(a.id || 0) - parseInt(b.id || 0));
+
+                const runningCount = allNodes.filter(n => n.status === 'running').length;
+                const stoppedCount = allNodes.filter(n => n.status === 'stopped').length;
+                if (summary) summary.innerText = `${runningCount} Up / ${stoppedCount} Down`;
+
+                const stateHash = JSON.stringify(allNodes);
+                if (container && container.dataset.hash === stateHash) return;
+                if (container) container.dataset.hash = stateHash;
+
+                let html = '';
+                allNodes.forEach(node => {
+                    const rowClass = node.status === 'running' ? 'node-item running-node' : 'node-item stopped-node';
+                    const opacityStyle = node.status === 'stopped' ? 'opacity: 0.6;' : '';
+                    let actionBtns = '';
+                    const safeName = node.name ? String(node.name).toLowerCase() : '';
+                    const isDashboard = String(node.id) === '100' || safeName === 'os dashboard';
+                    
+                    if (node.status === 'running') {
+                        // FIXED: Passing 'event' so we can intercept the click instantly
+                        actionBtns = `<button class="node-action-btn restart" onclick="window.sendPowerAction(event, '${node.id}', 'reboot')" title="Reboot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg></button>`;
+                        if (!isDashboard) actionBtns += `<button class="node-action-btn stop" onclick="window.sendPowerAction(event, '${node.id}', 'stop')" title="Stop"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg></button>`;
+                    } else {
+                        if (!isDashboard) actionBtns = `<button class="node-action-btn start" onclick="window.sendPowerAction(event, '${node.id}', 'start')" title="Start"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>`;
+                    }
+                    html += `<div class="${rowClass}"><div class="node-info" style="${opacityStyle}"><div class="node-dot ${node.status}"></div><span><span class="vmid-badge">${node.id}</span>${node.name}</span></div><div class="node-actions">${actionBtns}</div></div>`;
+                });
+                if (container) container.innerHTML = html;
+            } catch (err) {}
+        }
+
+        window.sendPowerAction = async function(event, vmid, action) {
+            // Intercept the click to prevent weird bubbling
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const btn = event.currentTarget;
+                
+                // INSTANT VISUAL FEEDBACK: Dim the button and turn the status dot orange!
+                btn.style.opacity = '0.3';
+                btn.style.pointerEvents = 'none';
+                
+                const nodeRow = btn.closest('.node-item');
+                if (nodeRow) {
+                    const dot = nodeRow.querySelector('.node-dot');
+                    if (dot) {
+                        dot.style.background = 'var(--accent-color)';
+                        dot.style.boxShadow = '0 0 5px var(--accent-color)';
+                    }
+                }
+            }
+
+            try {
+                const res = await fetch('/api/power', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ vmid, action }) 
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    // Delay the fetch slightly so Proxmox has time to actually execute the state change!
+                    setTimeout(fetchDashboardData, 2000); 
+                } else {
+                    // NO MORE SILENT FAILURES: Show exactly what Proxmox is complaining about!
+                    window.showCustomAlert("Power Action Failed", data.error || "Unknown server error.");
+                }
+            } catch (e) {
+                window.showCustomAlert("Network Error", "Failed to connect to the backend engine.");
+            }
+        };
+
+        // --- NEW: THE CENTRAL NERVOUS SYSTEM ---
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch('/api/dashboard_state.json?t=' + Date.now());
+                if (!response.ok) throw new Error('Data file not ready');
+                const data = await response.json();
+                lastApiData = data;
+                dashboardLayout = data.layout || dashboardLayout;
+
+                // Sync Theme State dynamically if it was changed on a different device!
+                if (dashboardLayout.active_theme && dashboardLayout.active_theme !== savedThemeName) {
+                    if (dashboardLayout.active_theme !== 'draft') {
+                        savedThemeName = dashboardLayout.active_theme;
+                        customThemes = dashboardLayout.custom_themes || {};
+                        const allThemes = getAllThemes();
+                        if (allThemes[savedThemeName]) applyThemeObject(allThemes[savedThemeName].colors);
+                    }
+                }
+                
+                document.getElementById('cpu-val').innerText = `${data.system.cpu || 0}%`;
+                document.getElementById('mem-val').innerText = `${data.system.mem_used || 0} / ${data.system.mem_total || 0}G`;
+                
+                const gpuContainer = document.getElementById('gpu-container');
+                if (!data.system.gpu || Object.keys(data.system.gpu).length === 0) { gpuContainer.style.display = 'none'; }
+                else {
+                    gpuContainer.style.display = 'flex'; 
+                    gpuContainer.innerHTML = `<div class="section-title">${data.system.gpu.name || 'GPU Compute'}</div><div class="stat-row"><span class="stat-label">Core Load</span><span class="stat-value">${data.system.gpu.load || '0'}%</span></div><div class="stat-row"><span class="stat-label">VRAM Usage</span><span class="stat-value">${data.system.gpu.vram || '0 GB'}</span></div>`;
+                }
+
+                const storageContainer = document.getElementById('storage-container');
+                if (data.system.storage && Array.isArray(data.system.storage)) {
+                    let sHtml = '<div class="section-title">Storage Pools</div>';
+                    data.system.storage.forEach(pool => {
+                        const isHigh = pool.pct > 85;
+                        const totalSize = pool.total ? `<span style="font-size: 0.7rem; color: var(--text-secondary); margin-left: 6px;">${pool.total}</span>` : '';
+                        sHtml += `<div style="margin-bottom: 0.5rem;"><div class="stat-row"><span class="stat-label">${pool.name}</span><span class="stat-value">${pool.pct}%${totalSize}</span></div><div class="progress-track"><div class="progress-fill ${isHigh ? '' : 'active'}" style="width: ${pool.pct}%; ${isHigh ? 'background: var(--danger);' : ''}"></div></div></div>`;
+                    });
+                    storageContainer.innerHTML = sHtml;
+                }
+
+                renderClusterNodes(data.applications, data.stopped_apps);
+                
+                // Only render grid updates if the user isn't actively dragging tiles
+                if (!isEditMode) renderApps(data.applications, data.stopped_apps, dashboardLayout);
+
+            } catch (error) { console.error("Dashboard Sync Error:", error); }
+        }
+
+        let progressInterval; let progress = 0;
+        const rebootBtn = document.getElementById('rebootBtn');
+        const rebootProgress = document.getElementById('rebootProgress');
+        
+        rebootBtn.addEventListener('mousedown', () => { 
+            progress = 0; rebootProgress.style.width = '0%'; 
+            progressInterval = setInterval(() => { 
+                progress += 2; rebootProgress.style.width = `${progress}%`; 
+                if (progress >= 100) { 
+                    clearInterval(progressInterval); rebootBtn.textContent = "Rebooting..."; rebootBtn.style.color = "var(--danger)";
+                    fetch('/api/power', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'host_reboot' }) });
+                } 
+            }, 60); 
+        });
+        
+        const resetHold = () => { clearInterval(progressInterval); if (progress < 100) { progress = 0; rebootProgress.style.width = '0%'; rebootBtn.textContent = "Reboot Server"; rebootBtn.style.color = "var(--text-secondary)"; } };
+        rebootBtn.addEventListener('mouseup', resetHold); rebootBtn.addEventListener('mouseleave', resetHold);
+
+        async function dashboardPollLoop() {
+            await fetchDashboardData();
+            setTimeout(dashboardPollLoop, 5000);
+        }
+
+        // Initialize Native Startup
+        renderThemeTiles();
+        dashboardPollLoop();
+    </script>
+</body>
+</html>
