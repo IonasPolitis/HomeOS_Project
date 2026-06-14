@@ -149,8 +149,7 @@ pct exec $LXC_ID -- mkdir -p /root/.ssh
 pct exec $LXC_ID -- ssh-keygen -t rsa -N "" -f /root/.ssh/id_rsa -q
 
 LXC_PUB_KEY=$(pct exec $LXC_ID -- cat /root/.ssh/id_rsa.pub)
-LXC_IP=$(pct exec $LXC_ID -- ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
-echo "from=\"$LXC_IP\" $LXC_PUB_KEY" >> /root/.ssh/authorized_keys
+echo "$LXC_PUB_KEY" >> /root/.ssh/authorized_keys
 
 ssh-keyscan -H $PVE_HOST_IP 2>/dev/null > /tmp/host_vif
 pct push $LXC_ID /tmp/host_vif /root/.ssh/known_hosts
@@ -316,16 +315,16 @@ rm -f /tmp/index.html
 
 
 # --- Installation Terminal Daemon ---
-cat << 'EOF' > /tmp/terminal-engine.py
+cat << 'EOF' > /tmp/terminal-daemon.py
 # ==============================================================================
-# 🔴 DROP ZONE 6: PASTE YOUR ENTIRE terminal-engine.py CODE HERE 
+# 🔴 DROP ZONE 6: PASTE YOUR ENTIRE terminal-daemon.py CODE HERE 
 #    (Overwrite these brackets entirely)
 # ==============================================================================
 EOF
 
-sed -i "s|__PVE_HOST__|$PVE_HOST_IP|g" /tmp/terminal-engine.py
-pct push $LXC_ID /tmp/terminal-engine.py "$LXC_WEB_DIR/terminal-engine.py"
-rm -f /tmp/terminal-engine.py
+sed -i "s|__PVE_HOST__|$PVE_HOST_IP|g" /tmp/terminal-daemon.py
+pct push $LXC_ID /tmp/terminal-daemon.py "$LXC_WEB_DIR/terminal-daemon.py"
+rm -f /tmp/terminal-daemon.py
 
 
 # --- Blueprints Schema Generation ---
@@ -415,9 +414,29 @@ EOF
 pct push $LXC_ID /tmp/web-server.service /etc/systemd/system/web-server.service
 rm -f /tmp/web-server.service
 
+cat << 'EOF' > /tmp/terminal-daemon.service
+[Unit]
+Description=HomeOS Terminal WebSocket Daemon
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/dashboard/web/terminal-daemon.py
+WorkingDirectory=/opt/dashboard/web
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Push to the LXC and clean up
+pct push $LXC_ID /tmp/terminal-daemon.service /etc/systemd/system/terminal-daemon.service
+rm -f /tmp/terminal-daemon.service
+
+
 pct exec $LXC_ID -- systemctl daemon-reload
 pct exec $LXC_ID -- systemctl enable --now sys-and-telemetry-collector.service
 pct exec $LXC_ID -- systemctl enable --now web-server.service
+pct exec $LXC_ID -- systemctl enable --now terminal-daemon.service
 
 sleep 2
 LXC_IP=$(pct exec $LXC_ID -- ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')

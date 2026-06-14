@@ -8,7 +8,11 @@ import json
 
 PVE_HOST = "__PVE_HOST__"
 
-async def handle_terminal(websocket, path):
+# FIXED: Added 'path=None' to support the new websockets v14.0+ library in Debian 13
+async def handle_terminal(websocket, path=None):
+    if path is None:
+        path = websocket.request.path
+
     app_id = path.strip('/')
     cmd_file = f"/tmp/terminal_cmd_{app_id}.txt"
 
@@ -20,9 +24,9 @@ async def handle_terminal(websocket, path):
         command = f.read().strip()
     os.remove(cmd_file)
 
-    # Force SSH to allocate a PTY (-t -t)
+    # Force SSH to allocate a PTY (-t -t), using explicit SSH keys
     ssh_cmd = [
-        "ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", 
+        "ssh", "-i", "/root/.ssh/id_rsa", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", 
         "-t", "-t", f"root@{PVE_HOST}", command
     ]
 
@@ -60,7 +64,7 @@ async def handle_terminal(websocket, path):
                     os.write(fd, message.encode('utf-8'))
                 else:
                     os.write(fd, message)
-        except websockets.exceptions.ConnectionClosed:
+        except Exception:
             pass
         finally:
             try:
@@ -71,7 +75,6 @@ async def handle_terminal(websocket, path):
             except Exception:
                 pass
             
-            # Auto URL Extraction (Replicating web-server.py behavior)
             urls = re.findall(r'(https?://[a-zA-Z0-9\.\-\:]+)', log_buffer)
             if urls:
                 extracted_url = urls[-1]

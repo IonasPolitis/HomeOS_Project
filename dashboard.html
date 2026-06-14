@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HomeOS Dashboard</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.3.0/css/xterm.css" />
-    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.3.0/lib/xterm.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    <style>
+        @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 600; src: url('/fonts/jetbrains-mono-600.woff2') format('woff2'); }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <style>
         /* ==================================================================
            LOCAL FONTS
@@ -16,7 +19,6 @@
         @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; src: url('/fonts/inter-600.woff2') format('woff2'); }
         @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; src: url('/fonts/jetbrains-mono-400.woff2') format('woff2'); }
         @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 500; src: url('/fonts/jetbrains-mono-500.woff2') format('woff2'); }
-        @font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 600; src: url('/fonts/jetbrains-mono-600.woff2') format('woff2'); }
 
         /* ==================================================================
            THEME ENGINE - THE 9 CORE VARIABLES
@@ -1304,7 +1306,8 @@
 
             const previewSection = document.createElement('div');
             previewSection.className = 'config-section';
-            previewSection.id = 'executionPreviewSection'; // <-- NEW: Added an ID for the morph sequence
+            previewSection.id = 'executionPreviewSection'; // <-- CRITICAL: Added an ID for the morph target
+            previewSection.style.marginTop = "-1rem";
             previewSection.innerHTML = `
                 <div class="config-section-title">Engine Execution Preview</div>
                 <div class="script-preview-box" id="liveBashPreviewString">Compiling simulation instructions payload...</div>
@@ -1378,7 +1381,7 @@
             const originalText = btn.textContent;
             const progressMsg = document.getElementById('installProgressMsg');
             
-            btn.textContent = "Compiling Container...";
+            btn.textContent = "Deploying Application...";
             btn.style.opacity = "0.7";
             btn.style.pointerEvents = "none";
             progressMsg.style.opacity = "1";
@@ -1391,7 +1394,6 @@
             };
 
             try {
-                // 1. Stage the deployment task via Python Switchboard API
                 const res = await fetch('/api/install', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' }, 
@@ -1405,43 +1407,46 @@
 
                 const setupMeta = await res.json();
                 
-                // 2. Morph the Engine Preview box into the Live Web Terminal (400px height)
+                // 1. DYNAMIC MORPH: HTML replaces the content smoothly while retaining the exact same container padding
                 const previewSection = document.getElementById('executionPreviewSection');
+                
                 previewSection.innerHTML = `
                     <div class="config-section-title" style="color: var(--accent-color);">Live Terminal Execution</div>
-                    <div id="terminalConsoleMount" style="width: 100%; height: 400px; background: #000; padding: 0.5rem; border-radius: 6px; overflow: hidden; margin-top: 0.5rem; border: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent);"></div>
+                    <div id="terminalConsoleMount" style="width: 100%; height: 200px; background: #000; padding: 0.5rem; border-radius: 6px; overflow: hidden; margin-top: 0.5rem; border: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent);"></div>
                 `;
                 
-                // 3. Initialize Xterm.js with the FitAddon
+                // 2. Initialize Xterm.js (Shrunk font to size 12 to maximize text wrapping)
                 const term = new Terminal({
                     cursorBlink: true,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontFamily: "var(--font-mono)",
                     theme: { background: '#000000', foreground: '#C9D1D9', cursor: 'var(--accent-color)' }
                 });
                 
                 const fitAddon = new FitAddon.FitAddon();
                 term.loadAddon(fitAddon);
-                
                 term.open(document.getElementById('terminalConsoleMount'));
-                fitAddon.fit(); // Calculate screen width and map columns perfectly
+                fitAddon.fit(); 
+                term.focus();
                 
-                // Keep terminal aligned if the user resizes their browser window during install
-                window.addEventListener('resize', () => fitAddon.fit());
+                const resizeObserver = new ResizeObserver(() => fitAddon.fit());
+                resizeObserver.observe(document.getElementById('terminalConsoleMount'));
 
                 term.writeln("\r\n\x1b[1;35m  ⚙️ Connecting via Secure Trust Tunnel to Terminal Microservice...\x1b[0m\r\n");
 
-                // 4. Connect the live interactive WebSocket pipe
+                // 3. Connect WebSocket & Start Crash-Guard Timer
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const hostIp = window.location.hostname;
-                const wsUrl = `ws://${hostIp}:${setupMeta.ws_port}/${setupMeta.app_id}`;
+                const wsUrl = `${protocol}//${hostIp}:${setupMeta.ws_port}/${setupMeta.app_id}`;
                 const ws = new WebSocket(wsUrl);
+                
+                const installStartTime = Date.now(); // Start the stopwatch
 
                 ws.onopen = () => {
                     term.writeln("\x1b[1;32m  ✔️ Pipeline Synchronized. Streaming Proxmox Execution Logs:\x1b[0m\r\n");
                     btn.textContent = "Streaming Logs...";
                 };
 
-                // Stream out from Proxmox PTY directly to the monitor
                 ws.onmessage = async (event) => {
                     if (event.data instanceof Blob) {
                         const text = await event.data.text();
@@ -1451,18 +1456,24 @@
                     }
                 };
 
-                // Catch key codes from dashboard physical user and pass back to Proxmox prompt
-                term.onData(data => {
-                    if (ws.readyState === WebSocket.OPEN) {
-                        ws.send(data);
-                    }
-                });
+                term.onData(data => { if (ws.readyState === WebSocket.OPEN) ws.send(data); });
 
-                ws.onerror = (err) => {
-                    term.writeln("\r\n\x1b[1;31m  ✖️ Terminal Engine Socket Interrupted.\x1b[0m");
-                };
+                ws.onerror = () => { term.writeln("\r\n\x1b[1;31m  ✖️ Terminal Engine Socket Interrupted.\x1b[0m"); };
 
                 ws.onclose = () => {
+                    const uptime = Date.now() - installStartTime;
+                    
+                    // CRASH GUARD: If it closes in less than 3 seconds, abort the auto-close!
+                    if (uptime < 3000) {
+                        term.writeln("\r\n\x1b[1;31m  ✖️ FATAL: Daemon disconnected instantly. Check Proxmox IP or SSH keys!\x1b[0m");
+                        btn.textContent = "Execution Failed";
+                        btn.style.background = "var(--danger)";
+                        btn.style.pointerEvents = "auto";
+                        progressMsg.style.opacity = "0";
+                        resizeObserver.disconnect();
+                        return; // Halt here. Do not close the modal.
+                    }
+
                     term.writeln("\r\n\x1b[1;32m  ✔️ Installation Routine Completed. Closing socket channel.\x1b[0m");
                     btn.textContent = "Deployment Finished!";
                     btn.style.background = "var(--success)";
@@ -1474,8 +1485,9 @@
                         btn.style.opacity = "1"; 
                         btn.style.pointerEvents = "auto";
                         btn.style.background = "var(--success)";
-                        fetchDashboardData(); // Force an immediate refresh so the new app drops onto the screen
-                    }, 4000); // Leave the terminal on screen for 4 seconds so the user can read the final IP address output
+                        resizeObserver.disconnect(); 
+                        fetchDashboardData(); 
+                    }, 4000); 
                 };
 
             } catch (err) {
