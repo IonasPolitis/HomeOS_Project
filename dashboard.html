@@ -441,6 +441,15 @@
             width: 100%;
         }
         
+        /* --- PREMIUM TABBED INTERFACE --- */
+        .modal-tabs { display: flex; border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 25%, transparent); overflow-x: auto; scrollbar-width: none; margin-top: 0.5rem; }
+        .modal-tabs::-webkit-scrollbar { display: none; }
+        .modal-tab-btn { background: transparent; border: none; color: var(--text-secondary); font-family: var(--font-ui); font-size: 0.8rem; font-weight: 500; padding: 0.6rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+        .modal-tab-btn:hover { color: var(--text-primary); }
+        .modal-tab-btn.active { color: var(--accent-color); border-bottom-color: var(--accent-color); color: var(--text-primary); }
+        .modal-tab-content { display: none; flex-direction: column; gap: 1.25rem; animation: fadeIn 0.2s ease; margin-top: 1rem; }
+        .modal-tab-content.active { display: flex; }
+
         /* Inline compact toggle optimization overrides */
         .config-section .toggle-wrapper {
             background: color-mix(in srgb, var(--bg-base) 30%, transparent);
@@ -569,14 +578,22 @@
             </div>
         </div>
 
-        <div class="floating-panel modal-panel" id="appEditPanel" style="width: 450px; max-width: 90vw; z-index: 10000;">
+        <div class="floating-panel modal-panel" id="appEditPanel" style="width: 500px; max-width: 90vw; z-index: 10000;">
             <div class="panel-header" style="border-bottom: none; padding-bottom: 0;">
                 <span class="panel-title" style="color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
                     <img id="editAppIconPreview" src="" style="width: 24px; height: 24px; object-fit: contain; border-radius: 4px;">
                     Edit <span id="editAppNameLabel" style="color: var(--accent-color);">App</span>
                 </span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-top: 0.5rem;">
+
+            <div class="modal-tabs" id="editAppTabs">
+                <button class="modal-tab-btn active" data-tab="tab-dashboard">Dashboard</button>
+                <button class="modal-tab-btn" data-tab="tab-hardware">Hardware</button>
+                <button class="modal-tab-btn" data-tab="tab-network">Network</button>
+                <button class="modal-tab-btn" data-tab="tab-options">Options</button>
+            </div>
+
+            <div class="modal-tab-content active" id="tab-dashboard">
                 <div class="form-group">
                     <label class="form-label">Application URL / IP Address</label>
                     <input type="text" id="editAppUrlInput" class="form-input-control" placeholder="e.g., http://10.0.0.5:8080">
@@ -588,9 +605,76 @@
                     <span class="form-desc" style="margin-top: 0.25rem;">Provide a direct web link to an image, or a local file path.</span>
                 </div>
             </div>
+
+            <div class="modal-tab-content" id="tab-hardware">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">CPU Cores</label>
+                        <input type="number" id="editAppCores" class="form-input-control" min="1" max="128">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Memory (MB)</label>
+                        <input type="number" id="editAppMemory" class="form-input-control" min="256" step="256">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Swap (MB)</label>
+                    <input type="number" id="editAppSwap" class="form-input-control" min="0" step="256">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="display: flex; justify-content: space-between;">
+                        <span>Add Root Disk Space (GB)</span>
+                        <span id="currentDiskLabel" style="color: var(--text-secondary); font-weight: 500;">Current: --</span>
+                    </label>
+                    <input type="number" id="editAppDisk" class="form-input-control" min="0" step="1" placeholder="e.g., 5">
+                    <span class="form-desc" style="margin-top: 0.25rem; color: var(--danger);">* Disk space can only be ADDED natively.</span>
+                </div>
+            </div>
+
+            <div class="modal-tab-content" id="tab-network">
+                <div class="form-group">
+                    <label class="form-label">IP Assignment Allocation</label>
+                    <div class="segmented-control" id="editNetSegmentControl">
+                        <button class="segment-btn active" data-val="dhcp">DHCP</button>
+                        <button class="segment-btn" data-val="static">Static IP</button>
+                    </div>
+                </div>
+                <div class="conditional-group" id="editStaticNetFields" style="display: none; margin-top: 0.5rem;">
+                    <div class="form-group">
+                        <label class="form-label">Static IP/CIDR</label>
+                        <input type="text" id="editAppNetIp" class="form-input-control" placeholder="e.g., 10.0.5.50/24">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Gateway IP</label>
+                        <input type="text" id="editAppGateway" class="form-input-control" placeholder="e.g., 10.0.5.1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-tab-content" id="tab-options">
+                <div class="toggle-wrapper" style="background: color-mix(in srgb, var(--bg-base) 30%, transparent); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--text-secondary) 10%, transparent);">
+                    <span class="form-label" style="font-size:0.75rem;">Start on Boot</span>
+                    <label class="switch-control">
+                        <input type="checkbox" id="editAppOnboot">
+                        <span class="slider-knob"></span>
+                    </label>
+                </div>
+                <div class="toggle-wrapper" style="background: color-mix(in srgb, var(--bg-base) 30%, transparent); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--text-secondary) 10%, transparent);">
+                    <span class="form-label" style="font-size:0.75rem;">Deletion Protection</span>
+                    <label class="switch-control">
+                        <input type="checkbox" id="editAppProtection">
+                        <span class="slider-knob"></span>
+                    </label>
+                </div>
+                <div class="form-group" style="margin-top: 0.5rem;">
+                    <label class="form-label">Proxmox Tags</label>
+                    <input type="text" id="editAppTags" class="form-input-control" placeholder="comma, separated, tags">
+                </div>
+            </div>
+
             <div class="config-footer" style="padding-top: 1rem; margin-top: 0.5rem;">
                 <button class="save-theme-btn" style="background: transparent; border: 1px solid var(--text-secondary); color: var(--text-secondary);" id="editAppCancelBtn">Cancel</button>
-                <button class="save-theme-btn" style="background: var(--accent-color); color: var(--bg-base);" id="editAppSaveBtn">Save Overrides</button>
+                <button class="save-theme-btn" style="background: var(--accent-color); color: var(--bg-base);" id="editAppSaveBtn">Save Changes</button>
             </div>
         </div>
 
@@ -1109,7 +1193,6 @@
                     <label class="form-label">Installation Profile Mode</label>
                     <div class="segmented-control" id="modeSegmentControl">
                         <button class="segment-btn active" data-val="appdefaults">App Defaults</button>
-                        <button class="segment-btn" data-val="mydefaults">User Presets</button>
                         <button class="segment-btn" data-val="generated">Advanced Setup</button>
                     </div>
                     <span class="form-desc" id="modeDescriptionLabel" style="margin-top:0.4rem;">Provision instantly utilizing standard open-source optimization defaults variables setup.</span>
@@ -1226,7 +1309,10 @@
 
             const modeButtons = modeSection.querySelectorAll('#modeSegmentControl .segment-btn');
             const descLabel = document.getElementById('modeDescriptionLabel');
-            const modeDescriptions = { appdefaults: "Provision instantly utilizing standard open-source optimization defaults variables setup.", mydefaults: "Bypass manual prompt setup rules by executing via your cluster node's pre-saved local host customization file profiles.", generated: "Expose advanced variable override tuning matrix parameters to customize installation completely." };
+            const modeDescriptions = { 
+                appdefaults: "Provision instantly utilizing standard open-source optimization defaults variables setup.", 
+                generated: "Expose advanced variable override tuning matrix parameters to customize installation completely." 
+            };
 
             modeButtons.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -1411,7 +1497,7 @@
             if(lastApiData) renderApps(lastApiData.applications, lastApiData.stopped_apps, dashboardLayout);
         };
 
-        // --- APP OVERRIDES MODAL ---
+        // --- APP OVERRIDES MODAL & TABS ---
         const appEditPanel = document.getElementById('appEditPanel');
         const editAppUrlInput = document.getElementById('editAppUrlInput');
         const editAppIconInput = document.getElementById('editAppIconInput');
@@ -1419,6 +1505,33 @@
         let activelyEditingAppId = null;
 
         editAppIconInput.addEventListener('input', (e) => { const val = e.target.value.trim(); if (val) editAppIconPreview.src = val; });
+
+        // Phase 2 Tab Switching Logic
+        const editTabBtns = document.querySelectorAll('#editAppTabs .modal-tab-btn');
+        const editTabContents = document.querySelectorAll('#appEditPanel .modal-tab-content');
+        
+        editTabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                editTabBtns.forEach(b => b.classList.remove('active'));
+                editTabContents.forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Phase 2 Segmented Control Logic for Network Tab
+        const editNetBtns = document.querySelectorAll('#editNetSegmentControl .segment-btn');
+        const editStaticFields = document.getElementById('editStaticNetFields');
+        let editCurrentNetMode = 'dhcp';
+        
+        editNetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                editNetBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                editCurrentNetMode = btn.dataset.val;
+                editStaticFields.style.display = editCurrentNetMode === 'static' ? 'flex' : 'none';
+            });
+        });
 
         window.editAppConfig = function(event, appId) {
             event.preventDefault(); event.stopPropagation();
@@ -1430,36 +1543,91 @@
             const safeDomain = appData.raw_name ? appData.raw_name.toLowerCase() : appData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
             const currentUrl = appData.custom_url ? appData.custom_url : `http://${safeDomain}.local`;
 
-            // ALWAYS display the exact active icon string (whether default 'icons/app.png' or a custom URL)
             const activeIconString = appData.custom_icon ? appData.custom_icon : appData.icon;
             editAppIconInput.value = activeIconString;
-            
-            // Ensure the preview image renders correctly whether it's a full web URL or a relative local path
             editAppIconPreview.src = activeIconString.startsWith('http') ? activeIconString : `${window.location.origin}/${activeIconString}`;
-
             document.getElementById('editAppNameLabel').textContent = appData.name;
             editAppUrlInput.value = currentUrl; 
+
+            // PHASE 2 & 4: Fill Hardware/Options/Network fields from Phase 1 Telemetry
+            const c = appData.config || {};
+            
+            document.getElementById('editAppCores').value = c.cores && c.cores !== "0" ? c.cores : 1;
+            document.getElementById('editAppMemory').value = c.memory && c.memory !== "0" ? c.memory : 512;
+            document.getElementById('editAppSwap').value = c.swap && c.swap !== "0" ? c.swap : 512;
+            
+            // Forgiving Root Disk Parsing: Safely extracts "2G" from complex volume strings
+            const rootfs = c.rootfs || "";
+            const sizeMatch = rootfs.match(/size=([^,]+)/i);
+            document.getElementById('currentDiskLabel').innerText = sizeMatch ? `Current Size: ${sizeMatch[1]}` : 'Current Size: Unknown';
+            document.getElementById('editAppDisk').value = ''; // Always blank, disk is additive only
+            
+            // Forgiving Boolean Parsing for Proxmox Toggles
+            const ob = String(c.onboot).toLowerCase().trim();
+            document.getElementById('editAppOnboot').checked = (ob === "1" || ob === "true" || ob === "yes");
+            
+            const prot = String(c.protection).toLowerCase().trim();
+            document.getElementById('editAppProtection').checked = (prot === "1" || prot === "true" || prot === "yes");
+            
+            document.getElementById('editAppTags').value = c.tags || '';
+            
+            // Network Parser
+            const net0 = c.net0 || '';
+            if (net0.includes('ip=dhcp')) {
+                editNetBtns[0].click(); // Click DHCP
+                document.getElementById('editAppNetIp').value = '';
+                document.getElementById('editAppGateway').value = '';
+            } else if (net0.includes('ip=')) {
+                editNetBtns[1].click(); // Click Static
+                const ipMatch = net0.match(/ip=([0-9\.\/]+)/);
+                const gwMatch = net0.match(/gw=([0-9\.]+)/);
+                document.getElementById('editAppNetIp').value = ipMatch ? ipMatch[1] : '';
+                document.getElementById('editAppGateway').value = gwMatch ? gwMatch[1] : '';
+            }
+
+            // Always reset to the Dashboard tab when opening
+            editTabBtns[0].click();
 
             modalBackdrop.classList.add('show'); appEditPanel.classList.add('show');
         };
 
         document.getElementById('editAppCancelBtn').addEventListener('click', () => { appEditPanel.classList.remove('show'); modalBackdrop.classList.remove('show'); activelyEditingAppId = null; });
 
-        document.getElementById('editAppSaveBtn').addEventListener('click', () => {
+        // Upgraded to ASYNC to lock the UI until Proxmox finishes executing
+        document.getElementById('editAppSaveBtn').addEventListener('click', async () => {
             if (!activelyEditingAppId) return;
+
+            const saveBtn = document.getElementById('editAppSaveBtn');
+            const originalText = saveBtn.textContent;
+            const cancelBtn = document.getElementById('editAppCancelBtn');
+            
+            // 1. Lock the UI
+            saveBtn.textContent = "Applying Changes...";
+            saveBtn.style.opacity = "0.7";
+            saveBtn.style.pointerEvents = "none";
+            cancelBtn.style.pointerEvents = "none";
 
             const newUrl = editAppUrlInput.value.trim();
             const newIcon = editAppIconInput.value.trim();
 
-            // INSTANT MEMORY SYNC: Prevent flicker when exiting Edit Mode
+            const hwCores = document.getElementById('editAppCores').value;
+            const hwMem = document.getElementById('editAppMemory').value;
+            const hwSwap = document.getElementById('editAppSwap').value;
+            const hwDiskAdd = document.getElementById('editAppDisk').value; 
+            
+            const netIp = document.getElementById('editAppNetIp').value.trim();
+            const netGw = document.getElementById('editAppGateway').value.trim();
+            
+            const optOnboot = document.getElementById('editAppOnboot').checked ? 1 : 0;
+            const optProtect = document.getElementById('editAppProtection').checked ? 1 : 0;
+            const optTags = document.getElementById('editAppTags').value.trim();
+
             if (lastApiData) {
                 const appData = [...(lastApiData.applications || []), ...(lastApiData.stopped_apps || [])].find(a => String(a.id) === String(activelyEditingAppId));
                 if (appData) {
-                    // 1. Update Javascript's local memory instantly
                     if (newUrl) appData.custom_url = newUrl; else delete appData.custom_url;
                     if (newIcon) appData.custom_icon = newIcon; else delete appData.custom_icon;
                     
-                    // 2. Update the grid visually without triggering a full redraw
                     const targetCard = document.querySelector(`.app-card[data-id="${activelyEditingAppId}"]`);
                     if (targetCard) {
                         const iconImg = targetCard.querySelector('.app-icon');
@@ -1470,19 +1638,37 @@
                 }
             }
 
-            // Sync with Python Backend
+            const masterPayload = { 
+                vmid: activelyEditingAppId, 
+                url: newUrl, icon: newIcon,
+                cores: hwCores, memory: hwMem, swap: hwSwap, disk_add: hwDiskAdd,
+                net_mode: editCurrentNetMode, net_ip: netIp, net_gw: netGw,
+                onboot: optOnboot, protection: optProtect, tags: optTags
+            };
+
             try {
-                fetch('/api/app/save', {
+                // 2. AWAIT the backend execution. This forces Javascript to pause here until Proxmox is done!
+                await fetch('/api/app/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vmid: activelyEditingAppId, url: newUrl, icon: newIcon })
+                    body: JSON.stringify(masterPayload)
                 });
-            } catch(e) { console.error("Failed to save overrides", e); }
+                
+                // 3. Force an immediate refresh so the newly resized disk shows up
+                await fetchDashboardData();
+            } catch(e) { 
+                console.error("Failed to save overrides", e); 
+            } finally {
+                // 4. Unlock UI and close modal
+                saveBtn.textContent = originalText;
+                saveBtn.style.opacity = "1";
+                saveBtn.style.pointerEvents = "auto";
+                cancelBtn.style.pointerEvents = "auto";
 
-            // Close Modal
-            appEditPanel.classList.remove('show');
-            modalBackdrop.classList.remove('show');
-            activelyEditingAppId = null;
+                appEditPanel.classList.remove('show');
+                modalBackdrop.classList.remove('show');
+                activelyEditingAppId = null;
+            }
         });
 
         // ==========================================

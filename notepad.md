@@ -7,7 +7,7 @@ API_TOKEN = "__API_TOKEN__"
 PORT = 80
 PVE_HOST = "10.0.5.254"
 PVE_NODE = "proxmox-sandbox"
-API_TOKEN = "PVEAPIToken=root@pam!dashboard=225b3cf5-0c5d-4496-9e90-232bb871932d"
+API_TOKEN = "PVEAPIToken=root@pam!dashboard=f398ac3f-3832-478c-905f-3b7a9ab3f121"
 
 #sys
 PVE_HOST="__PVE_HOST__"
@@ -16,4 +16,4 @@ API_TOKEN="__API_TOKEN__"
 
 PVE_HOST="10.0.5.254"
 PVE_NODE="proxmox-sandbox"
-API_TOKEN="PVEAPIToken=root@pam!dashboard=225b3cf5-0c5d-4496-9e90-232bb871932d"
+API_TOKEN="PVEAPIToken=root@pam!dashboard=f398ac3f-3832-478c-905f-3b7a9ab3f121"

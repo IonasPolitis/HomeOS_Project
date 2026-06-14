@@ -38,7 +38,7 @@ while true; do
     }] | sort_by(.name)' 2>/dev/null || echo "[]")
     [ -z "$STORAGE_ARRAY" ] && STORAGE_ARRAY="[]"
     
-    # 3. Container Parsing (Dumbed down - No heavy icon curl downloading)
+    # 3. Container Parsing (UPGRADED WITH CONFIG FETCHING)
     NODES_JSON=$(curl -s -k --max-time 5 -H "Authorization: $API_TOKEN" "https://$PVE_HOST:8006/api2/json/nodes/$PVE_NODE/lxc" || echo "{}")
     
     APPS_TMP=$(mktemp)
@@ -59,11 +59,22 @@ while true; do
         SAFE_NAME=$(echo "$RAW_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')
         ICON_PATH="icons/${SAFE_NAME}.png"
 
-        # Append purely structural JSON lines to temp buffers
+        # --- PHASE 1 UPGRADE: Fetch Advanced Proxmox Configuration (5s Timeout) ---
+        CONFIG_JSON=$(curl -s -k --max-time 5 -H "Authorization: $API_TOKEN" "https://$PVE_HOST:8006/api2/json/nodes/$PVE_NODE/lxc/$VMID/config" || echo "{}")
+        
+        CORES=$(echo "$CONFIG_JSON" | jq -r '.data.cores // 1')
+        MEMORY=$(echo "$CONFIG_JSON" | jq -r '.data.memory // 512')
+        SWAP=$(echo "$CONFIG_JSON" | jq -r '.data.swap // 0')
+        ONBOOT=$(echo "$CONFIG_JSON" | jq -r '.data.onboot // 0')
+        PROTECTION=$(echo "$CONFIG_JSON" | jq -r '.data.protection // 0')
+        TAGS=$(echo "$CONFIG_JSON" | jq -r '.data.tags // ""')
+        NET0=$(echo "$CONFIG_JSON" | jq -r '.data.net0 // ""')
+        ROOTFS=$(echo "$CONFIG_JSON" | jq -r '.data.rootfs // ""')
+
         if [ "$STATUS" == "running" ]; then
-            jq -n --arg id "$VMID" --arg name "$HUMAN_NAME" --arg raw "$RAW_NAME" --arg icon "$ICON_PATH" --arg status "$STATUS" '{id: $id, name: $name, raw_name: $raw, icon: $icon, status: $status}' >> "$APPS_TMP"
+            jq -n --arg id "$VMID" --arg name "$HUMAN_NAME" --arg raw "$RAW_NAME" --arg icon "$ICON_PATH" --arg status "$STATUS" --arg cores "$CORES" --arg memory "$MEMORY" --arg swap "$SWAP" --arg onboot "$ONBOOT" --arg protection "$PROTECTION" --arg tags "$TAGS" --arg net0 "$NET0" --arg rootfs "$ROOTFS" '{id: $id, name: $name, raw_name: $raw, icon: $icon, status: $status, config: {cores: $cores, memory: $memory, swap: $swap, onboot: $onboot, protection: $protection, tags: $tags, net0: $net0, rootfs: $rootfs}}' >> "$APPS_TMP"
         else
-            jq -n --arg id "$VMID" --arg name "$HUMAN_NAME" --arg raw "$RAW_NAME" --arg icon "$ICON_PATH" --arg status "$STATUS" '{id: $id, name: $name, raw_name: $raw, icon: $icon, status: $status}' >> "$STOPPED_TMP"
+            jq -n --arg id "$VMID" --arg name "$HUMAN_NAME" --arg raw "$RAW_NAME" --arg icon "$ICON_PATH" --arg status "$STATUS" --arg cores "$CORES" --arg memory "$MEMORY" --arg swap "$SWAP" --arg onboot "$ONBOOT" --arg protection "$PROTECTION" --arg tags "$TAGS" --arg net0 "$NET0" --arg rootfs "$ROOTFS" '{id: $id, name: $name, raw_name: $raw, icon: $icon, status: $status, config: {cores: $cores, memory: $memory, swap: $swap, onboot: $onboot, protection: $protection, tags: $tags, net0: $net0, rootfs: $rootfs}}' >> "$STOPPED_TMP"
         fi
     done
 

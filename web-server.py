@@ -291,6 +291,7 @@ class HomeOSRequestHandler(http.server.SimpleHTTPRequestHandler):
                 payload = json.loads(post_data.decode('utf-8'))
                 vmid = str(payload.get('vmid'))
                 if not vmid.isdigit(): raise ValueError("Invalid VMID")
+                if vmid == '100': raise PermissionError("Cannot modify the master dashboard via this interface.")
                 
                 app_json_path = os.path.join(APP_DIR, f"{vmid}.json")
                 
@@ -303,10 +304,49 @@ class HomeOSRequestHandler(http.server.SimpleHTTPRequestHandler):
                 all_apps = pulse_data.get('applications', []) + pulse_data.get('stopped_apps', [])
                 target_app = next((a for a in all_apps if str(a.get('id')) == vmid), {})
 
+                # -------------------------------------------------------------
+                # PHASE 3 & 4: ADVANCED PROXMOX COMMAND EXECUTION ENGINE
+                # -------------------------------------------------------------
+                cmd_parts = [f"pct set {vmid}"]
+                if payload.get("cores"): cmd_parts.append(f"-cores {payload['cores']}")
+                if payload.get("memory"): cmd_parts.append(f"-memory {payload['memory']}")
+                if payload.get("swap") is not None: cmd_parts.append(f"-swap {payload['swap']}")
+                if payload.get("onboot") is not None: cmd_parts.append(f"-onboot {payload['onboot']}")
+                if payload.get("protection") is not None: cmd_parts.append(f"-protection {payload['protection']}")
+                if "tags" in payload: cmd_parts.append(f"-tags '{payload['tags']}'")
+
+                # THE NETWORK GUARDRAIL: Safely splice the net0 string so we don't wipe the MAC address or bridge
+                if payload.get("net_mode"):
+                    existing_net0 = target_app.get("config", {}).get("net0", "")
+                    if existing_net0:
+                        net_parts = [p for p in existing_net0.split(',') if not p.startswith('ip=') and not p.startswith('gw=')]
+                        if payload["net_mode"] == "dhcp":
+                            net_parts.append("ip=dhcp")
+                        else:
+                            if payload.get("net_ip"): net_parts.append(f"ip={payload['net_ip']}")
+                            if payload.get("net_gw"): net_parts.append(f"gw={payload['net_gw']}")
+                        cmd_parts.append(f"-net0 {','.join(net_parts)}")
+
+                # Fire Core Settings to Proxmox
+                if len(cmd_parts) > 1:
+                    ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", f"root@{PVE_HOST}", " ".join(cmd_parts)]
+                    subprocess.run(ssh_cmd, capture_output=True)
+
+                # THE DISK GUARDRAIL: Only add space, never shrink.
+                if payload.get("disk_add"):
+                    try:
+                        add_gb = int(payload["disk_add"])
+                        if add_gb > 0:
+                            disk_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", f"root@{PVE_HOST}", f"pct resize {vmid} rootfs +{add_gb}G"]
+                            subprocess.run(disk_cmd, capture_output=True)
+                    except: pass
+
+                # -------------------------------------------------------------
+                # LOCAL JSON DATABASE ROUTING (URL & Icon Overrides)
+                # -------------------------------------------------------------
                 if os.path.exists(app_json_path):
                     with open(app_json_path, 'r') as f: app_config = json.load(f)
                 else:
-                    # Enforce strict schema on newly saved overrides
                     app_config = {
                         "vmid": vmid,
                         "name": target_app.get('name', 'Unknown'),
@@ -325,7 +365,6 @@ class HomeOSRequestHandler(http.server.SimpleHTTPRequestHandler):
                         app_config["port"] = ""
                     else: 
                         app_config["url"] = payload["url"]
-                        # FIXED: Slice and dice custom UI URLs to extract isolated IP and Port values automatically
                         url_clean = payload["url"].replace('http://', '').replace('https://', '')
                         parts = url_clean.split(':')
                         app_config["ip"] = parts[0]
