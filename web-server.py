@@ -216,7 +216,6 @@ class HomeOSRequestHandler(http.server.SimpleHTTPRequestHandler):
                 icon_url = data.get('icon_url')
 
                 if app_id and icon_url:
-                    # FIXED: Save newly downloaded icons directly to the strict backend apps folder
                     icon_path = os.path.join(ICON_DIR, f"{app_id}.png")
                     if not os.path.exists(icon_path):
                         try:
@@ -226,39 +225,22 @@ class HomeOSRequestHandler(http.server.SimpleHTTPRequestHandler):
                                 out_file.write(response.read())
                         except Exception: pass 
 
+                # Base64 encode to prevent command injection
                 b64_command = base64.b64encode(command.encode('utf-8')).decode('utf-8')
-                safe_script = f"echo {b64_command} | base64 -d > /tmp/run_{app_id}.sh && chmod +x /tmp/run_{app_id}.sh && bash /tmp/run_{app_id}.sh > /tmp/homeos_install_{app_id}.log 2>&1"
-                ssh_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", f"root@{PVE_HOST}", safe_script]
                 
-                result = subprocess.run(ssh_cmd, capture_output=True, text=True)
+                # NOTE: We REMOVED the `> /tmp/log 2>&1` pipe here. The PTY needs raw output to stream to the UI!
+                safe_script = f"echo {b64_command} | base64 -d > /tmp/run_{app_id}.sh && chmod +x /tmp/run_{app_id}.sh && bash /tmp/run_{app_id}.sh"
                 
-                if result.returncode != 0:
-                    ssh_err = result.stderr.strip()
-                    if "ssh:" in ssh_err.lower() or "connection refused" in ssh_err.lower():
-                        raise Exception(f"SSH Connection Failed: {ssh_err}")
-                    error_check_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", f"root@{PVE_HOST}", f"tail -n 10 /tmp/homeos_install_{app_id}.log || echo 'Log not found'"]
-                    err_result = subprocess.run(error_check_cmd, capture_output=True, text=True)
-                    raise Exception(f"Installation aborted by host:\n{err_result.stdout.strip()}")
-
-                extracted_url = ""
-                try:
-                    log_fetch_cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", f"root@{PVE_HOST}", f"cat /tmp/homeos_install_{app_id}.log"]
-                    log_res = subprocess.run(log_fetch_cmd, capture_output=True, text=True)
-                    urls = re.findall(r'(https?://[a-zA-Z0-9\.\-\:]+)', log_res.stdout)
-                    if urls: extracted_url = urls[-1]
-                except Exception: pass
-
-                if extracted_url:
-                    config = load_config()
-                    pending = config.get("pending_urls", {})
-                    pending[app_id.lower()] = extracted_url
-                    config["pending_urls"] = pending
-                    save_config(config)
-
+                # Write the command to a secure hand-off file for terminal-engine.py
+                cmd_file = f"/tmp/terminal_cmd_{app_id}.txt"
+                with open(cmd_file, 'w') as f:
+                    f.write(safe_script)
+                
+                # Instantly reply to the frontend telling it to open the WebSocket
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "extracted_url": extracted_url}).encode('utf-8'))
+                self.wfile.write(json.dumps({"success": True, "ws_port": 8081, "app_id": app_id}).encode('utf-8'))
             except Exception as e:
                 self.send_response(500)
                 self.end_headers()

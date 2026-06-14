@@ -160,7 +160,7 @@ rm -f /tmp/host_vif
 # 4. PROVISION LXC DIRECTORIES, ASSETS & DATA ENGINE
 # ------------------------------------------------------------------------------
 echo "[4/5] Installing dependencies and building data engine..."
-pct exec $LXC_ID -- bash -c "apt-get update > /dev/null && apt-get install -y jq curl python3 > /dev/null"
+pct exec $LXC_ID -- bash -c "apt-get update > /dev/null && apt-get install -y jq curl python3 python3-websockets > /dev/null"
 # FIXED: Create the strict apps/icons directory instead of the redundant web/icons one
 pct exec $LXC_ID -- mkdir -p "$LXC_BIN_DIR" "/opt/dashboard/apps/icons" "$LXC_WEB_DIR/api" "$LXC_WEB_DIR/fonts"
 
@@ -315,9 +315,22 @@ pct push $LXC_ID /tmp/index.html "$LXC_WEB_DIR/index.html"
 rm -f /tmp/index.html
 
 
+# --- Installation Terminal Daemon ---
+cat << 'EOF' > /tmp/terminal-engine.py
+# ==============================================================================
+# 🔴 DROP ZONE 6: PASTE YOUR ENTIRE terminal-engine.py CODE HERE 
+#    (Overwrite these brackets entirely)
+# ==============================================================================
+EOF
+
+sed -i "s|__PVE_HOST__|$PVE_HOST_IP|g" /tmp/terminal-engine.py
+pct push $LXC_ID /tmp/terminal-engine.py "$LXC_WEB_DIR/terminal-engine.py"
+rm -f /tmp/terminal-engine.py
+
+
 # --- Blueprints Schema Generation ---
 # ==============================================================================
-# 🔴 DROP ZONE 6: PASTE YOUR ENTIRE flags_blueprint.json CODE HERE 
+# 🔴 DROP ZONE 7: PASTE YOUR ENTIRE flags_blueprint.json CODE HERE 
 # ==============================================================================
 cat << 'EOF' > /tmp/flags_blueprint.json
 {
